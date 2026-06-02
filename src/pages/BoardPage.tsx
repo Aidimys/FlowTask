@@ -4,6 +4,7 @@ import { useBoardData } from '../hooks/useBoardData';
 import { Column } from '../components/board/Column';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus } from 'lucide-react';
+import { BoardSkeleton } from '../components/shared/BoardSkeleton';
 
 export const BoardPage = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -25,11 +26,7 @@ export const BoardPage = () => {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
+    return <BoardSkeleton />;
   }
 
   const handleCreateColumn = (e: React.FormEvent) => {
@@ -85,7 +82,7 @@ export const BoardPage = () => {
       </header>
 
       {/* Рабочая dnd зона доски */}
-      <main className="flex-1 overflow-x-auto p-6 flex gap-5 items-start minimal-scrollbar">
+      <main className="flex-1 overflow-x-auto p-4 sm:p-6 flex gap-4 sm:gap-5 items-start minimal-scrollbar snap-x">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
           {columns.map((column) => {
             const columnTasks = tasks.filter((t) => t.column_id === column.id);
