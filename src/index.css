@@ -1,21 +1,25 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased minimal-scrollbar;
+  background-color: rgb(248 250 252); /* Стили Slate-50 вручную, так как @apply в v4 работает внутри слоев */
+  color: rgb(15 23 42); /* Slate-900 */
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Стили для красивых скроллбаров в колонках */
-@layer utilities {
-  .minimal-scrollbar::-webkit-scrollbar {
+/* Красивый скроллбар */
+@utility minimal-scrollbar {
+  &::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  .minimal-scrollbar::-webkit-scrollbar-track {
+  &::-webkit-scrollbar-track {
     background: transparent;
   }
-  .minimal-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full hover:bg-slate-400;
+  &::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225); /* slate-300 */
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 163 184); /* slate-400 */
   }
 }
