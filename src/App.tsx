@@ -2,29 +2,28 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-
+import { BoardPage } from './pages/BoardPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публичный роут */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Защищенный роут */}
         <Route 
           path="/dashboard" 
-          element={
+          element = {
             <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
           } 
         />
+
         <Route 
           path="/board/:boardId" 
           element={
             <ProtectedRoute>
-              <div className="p-8">Страница доски (скоро напишем)</div>
+              <BoardPage />
             </ProtectedRoute>
           } 
         />
