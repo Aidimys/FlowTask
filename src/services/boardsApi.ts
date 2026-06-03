@@ -180,15 +180,17 @@ export const updateTaskDetails = async (
 export const getBoardMembers = async (boardId: string) => {
   const { data, error } = await (supabase as any)
     .from('board_members_with_emails')
-    .select('user_id, user_email')
+    .select('user_id, user_email, full_name, avatar_url')
     .eq('board_id', boardId);
 
   if (error) throw new Error(error.message);
 
   return (data || []).map((m: any) => ({
     user_id: m.user_id,
-    user_email: m.user_email || `Юзер: ${m.user_id.slice(0, 8)}...`
-  })) as { user_id: string; user_email: string }[];
+    user_email: m.user_email,
+    full_name: m.full_name || '',
+    avatar_url: m.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_id}`
+  }));
 };
 
 export const getTaskComments = async (taskId: string) => {
@@ -228,6 +230,36 @@ export const deleteTaskComment = async (commentId: string) => {
     .eq('id', commentId);
 
   if (error) throw new Error(error.message);
+};
+
+
+export const inviteUserByEmail = async (boardId: string, email: string) => {
+  // Кастим rpc к any, чтобы разрешить кастомное имя функции
+  const { data: userId, error: rpcError } = await (supabase as any)
+    .rpc('get_user_id_by_email', { email_text: email.trim() });
+
+  if (rpcError) throw new Error(rpcError.message);
+  if (!userId) throw new Error('Пользователь с таким email не найден');
+
+  const { error: insertError } = await supabase
+    .from('board_members')
+    .insert([{ board_id: boardId, user_id: userId, role: 'member' }]);
+
+  if (insertError) {
+    if (insertError.code === '23505') throw new Error('Этот... пользователь уже на доске');
+    throw new Error(insertError.message);
+  }
+};
+
+export const getBoardDetails = async (boardId: string) => {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('owner_id, title')
+    .eq('id', boardId)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
 };
 
 export const getCurrentUser = async () => {
