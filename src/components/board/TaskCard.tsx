@@ -1,18 +1,12 @@
+import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Trash2, Calendar, User } from 'lucide-react';
+import { Calendar, Trash2 } from 'lucide-react';
 
-interface TaskCardProps {
-  id: string;
-  title: string;
-  priority: 'low' | 'medium' | 'high' | string | null;
-  dueDate: string | null;
-  assigneeId: string | null;
-  onDelete: () => void;
-  onClick: () => void;
-}
+export const TaskCard: React.FC<any> = (props) => {
+  const task = props.task || props.item || (props.id ? props : null);
 
-export const TaskCard = ({ id, title, priority, dueDate, assigneeId, onDelete, onClick }: TaskCardProps) => {
+  const safeTaskId = task?.id || props.id || 'temporary-id';
   const {
     attributes,
     listeners,
@@ -20,29 +14,39 @@ export const TaskCard = ({ id, title, priority, dueDate, assigneeId, onDelete, o
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id: safeTaskId });
+
+  if (!task) return null;
+
+  const id = task.id || props.id;
+  const title = task.title || props.title || 'Без названия';
+  const dueDate = task.due_date || task.dueDate || props.due_date || props.dueDate;
+  const assigneeId = task.assignee_id || task.assigneeId || props.assignee_id || props.assigneeId;
+  const priority = task.priority || props.priority;
+  const members = props.members || [];
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.5 : 1,
   };
 
-  const validPriority = (priority === 'low' || priority === 'high') ? priority : 'medium';
-
-  const priorityBadgeColors = {
-    low: 'bg-green-500',
-    medium: 'bg-amber-500',
-    high: 'bg-red-500',
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Вы уверены, что хотите удалить эту задачу?')) {
+      if (props.onDeleteTask) props.onDeleteTask(id);
+      else if (props.onDelete) props.onDelete(id);
+    }
   };
 
-  const priorityLabels = {
-    low: 'Низкий приоритет',
-    medium: 'Средний приоритет',
-    high: 'Высокий приоритет',
+  const priorityColors: Record<string, string> = {
+    high: 'bg-red-50 text-red-700 border-red-100',
+    medium: 'bg-amber-50 text-amber-700 border-amber-100',
+    low: 'bg-green-50 text-green-700 border-green-100',
   };
 
-  const isOverdue = dueDate ? new Date(dueDate) < new Date(new Date().setHours(0,0,0,0)) : false;
+  const assignee = members?.find((m: any) => m?.user_id === assigneeId);
+  const avatarUrl = assignee?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${assigneeId}`;
 
   return (
     <div
@@ -50,61 +54,52 @@ export const TaskCard = ({ id, title, priority, dueDate, assigneeId, onDelete, o
       style={style}
       {...attributes}
       {...listeners}
-      onClick={onClick}
-      className="group bg-white rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-md cursor-grab active:cursor-grabbing flex flex-col transition touch-none overflow-hidden"
+      onClick={props.onClick}
+      className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition cursor-grab active:cursor-grabbing relative group space-y-3 select-none my-2"
     >
-      {/* Линия приоритета сверху карточки */}
-      <div className={`h-1 w-full ${priorityBadgeColors[validPriority]}`} title={priorityLabels[validPriority]} />
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="font-semibold text-slate-800 text-sm leading-snug wrap-break-word pr-4">
+          {title}
+        </h4>
+        <button
+          onClick={handleDelete}
+          className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition p-1 rounded-md hover:bg-slate-50 cursor-pointer absolute top-3 right-3"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
-      <div className="p-3.5 space-y-3">
-        {/* Верхняя часть: Текст и кнопка удаления */}
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-sm font-semibold text-slate-700 wrap-break-word line-clamp-3 select-none">
-            {title}
-          </span>
-          
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="text-slate-400 hover:text-red-500 p-1 rounded-md opacity-0 group-hover:opacity-100 focus:opacity-100 transition shrink-0"
-            title="Удалить задачу"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <div className="flex items-center gap-1.5">
+          {priority && priorityColors[priority] && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wider ${priorityColors[priority]}`}>
+              {priority === 'high' ? 'Высокий' : priority === 'medium' ? 'Средний' : 'Низкий'}
+            </span>
+          )}
+
+          {dueDate && (
+            <div className="flex items-center gap-1 text-xs text-slate-400">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>
+                {new Date(dueDate).toLocaleDateString('ru-RU', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Нижняя часть (Метаданные): Показываем только если есть дата или исполнитель */}
-        {(dueDate || assigneeId) && (
-          <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs text-slate-400 select-none">
-            
-            {/* Блок дедлайна */}
-            {dueDate ? (
-              <div 
-                className={`flex items-center gap-1 font-medium px-1.5 py-0.5 rounded-md ${
-                  isOverdue ? 'bg-red-50 text-red-600 font-bold' : 'text-slate-500'
-                }`}
-                title={isOverdue ? "Срок задачи истек!" : "Срок выполнения"}
-              >
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{new Date(dueDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
-              </div>
-            ) : (
-              <div />
-            )}
-
-            {/* Блок исполнителя */}
-            {assigneeId && (
-              <div 
-                className="flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium"
-                title="Исполнитель назначен"
-              >
-                <User className="h-3 w-3" />
-                <span>Назначен</span>
-              </div>
-            )}
+        {assigneeId && (
+          <div 
+            className="h-6 w-6 rounded-full border border-white shadow-xs bg-slate-100 overflow-hidden shrink-0" 
+            title={assignee?.full_name || assignee?.user_email || 'Исполнитель'}
+          >
+            <img
+              src={avatarUrl}
+              alt="avatar"
+              className="h-full w-full object-cover"
+            />
           </div>
         )}
       </div>
