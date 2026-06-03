@@ -1,9 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/boardsApi';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { supabase } from '../services/supabase';
 
 export const useBoardData = (boardId: string) => {
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!boardId) return;
+    const boardChannel = supabase
+      .channel(`public:board_changes:${boardId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'columns' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(boardChannel);
+    };
+  }, [boardId, queryClient]);
 
   const columnsQuery = useQuery({
     queryKey: ['columns', boardId],
