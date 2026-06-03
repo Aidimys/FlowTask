@@ -2,31 +2,49 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBoardData } from '../hooks/useBoardData';
 import { Column } from '../components/board/Column';
+import { TaskModal } from '../components/board/TaskModal'; 
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus } from 'lucide-react';
-import { BoardSkeleton } from '../components/shared/BoardSkeleton';
+
+interface Task {
+  id: string;
+  column_id: string;
+  title: string;
+  position: number; 
+  description: string | null;
+  priority: 'low' | 'medium' | 'high' | string | null; 
+  due_date: string | null;
+  assignee_id: string | null;
+}
 
 export const BoardPage = () => {
   const { boardId } = useParams<{ boardId: string }>();
   const navigate = useNavigate();
   
   const { 
-    columns, tasks, isLoading, 
+    columns, tasks, members, isLoading, 
     createColumn, deleteColumn, 
-    createTask, deleteTask, moveTask 
+    createTask, deleteTask, moveTask,
+    updateTaskDetails
   } = useBoardData(boardId || '');
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [isAddingColumn, setIsAddingColumn] = useState(false);
+  
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 }, 
+      activationConstraint: { distance: 8 },
     })
   );
 
   if (isLoading) {
-    return <BoardSkeleton />;
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    );
   }
 
   const handleCreateColumn = (e: React.FormEvent) => {
@@ -64,7 +82,6 @@ export const BoardPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Шапка доски */}
       <header className="bg-white border-b border-slate-200 h-16 flex items-center shrink-0 px-6 justify-between sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button
@@ -81,8 +98,7 @@ export const BoardPage = () => {
         </div>
       </header>
 
-      {/* Рабочая dnd зона доски */}
-      <main className="flex-1 overflow-x-auto p-4 sm:p-6 flex gap-4 sm:gap-5 items-start minimal-scrollbar snap-x">
+      <main className="flex-1 overflow-x-auto p-6 flex gap-5 items-start minimal-scrollbar">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
           {columns.map((column) => {
             const columnTasks = tasks.filter((t) => t.column_id === column.id);
@@ -95,12 +111,12 @@ export const BoardPage = () => {
                 onDeleteColumn={() => deleteColumn(column.id)}
                 onAddTask={(title) => createTask({ columnId: column.id, title, position: columnTasks.length })}
                 onDeleteTask={(taskId) => deleteTask(taskId)}
+                onTaskClick={(task) => setSelectedTask(task as Task)}
               />
             );
           })}
         </DndContext>
 
-        {/* Форма быстрого добавления новой колонки */}
         <div className="w-72 shrink-0">
           {isAddingColumn ? (
             <form onSubmit={handleCreateColumn} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
@@ -140,6 +156,17 @@ export const BoardPage = () => {
           )}
         </div>
       </main>
+
+      {/* Подключаем модальное окно на страницу */}
+      <TaskModal
+        task={selectedTask as any}
+        isOpen={selectedTask !== null}
+        members={members}
+        onClose={() => setSelectedTask(null)}
+        onSave={(taskId, updates) => {
+          updateTaskDetails({ taskId, updates });
+        }}
+      />
     </div>
   );
 };

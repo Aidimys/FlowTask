@@ -17,6 +17,12 @@ export const useBoardData = (boardId: string) => {
     enabled: !!boardId,
   });
 
+  const membersQuery = useQuery({
+    queryKey: ['board_members', boardId],
+    queryFn: () => api.getBoardMembers(boardId),
+    enabled: !!boardId,
+  });
+
   const createColumnMutation = useMutation({
     mutationFn: (title: string) => {
       const currentPos = columnsQuery.data?.length || 0;
@@ -68,9 +74,20 @@ export const useBoardData = (boardId: string) => {
     },
   });
 
+  const updateTaskDetailsMutation = useMutation({
+    mutationFn: ({taskId, updates}: { taskId: string; updates: { description?: string; priority?: 'low' | 'medium' | 'high' } }) => 
+      api.updateTaskDetails(taskId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      toast.success('Детали задачи обновлены');
+    }
+  });
+
   return {
     columns: columnsQuery.data || [],
     tasks: tasksQuery.data || [],
+    members: membersQuery.data || [],
+    
     isLoading: columnsQuery.isLoading || tasksQuery.isLoading,
     
     createColumn: createColumnMutation.mutate,
@@ -80,5 +97,7 @@ export const useBoardData = (boardId: string) => {
     createTask: createTaskMutation.mutate,
     deleteTask: deleteTaskMutation.mutate,
     moveTask: moveTaskMutation.mutate,
+
+    updateTaskDetails: updateTaskDetailsMutation.mutate,
   };
 };

@@ -154,4 +154,83 @@ export const updateTaskPosition = async (taskId: string, columnId: string, posit
     .eq('id', taskId);
 
   if (error) throw new Error(error.message);
+
+};
+
+export const updateTaskDetails = async (
+  taskId: string, 
+  updates: { 
+    description?: string; 
+    priority?: 'low' | 'medium' | 'high';
+    due_date?: string | null;
+    assignee_id?: string | null;
+  }
+) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(updates)
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const getBoardMembers = async (boardId: string) => {
+  const { data, error } = await (supabase as any)
+    .from('board_members_with_emails')
+    .select('user_id, user_email')
+    .eq('board_id', boardId);
+
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((m: any) => ({
+    user_id: m.user_id,
+    user_email: m.user_email || `Юзер: ${m.user_id.slice(0, 8)}...`
+  })) as { user_id: string; user_email: string }[];
+};
+
+export const getTaskComments = async (taskId: string) => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('task_id', taskId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+};
+
+export const createTaskComment = async (taskId: string, content: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Пользователь не авторизован');
+
+  const { data, error } = await supabase
+    .from('comments')
+    .insert([
+      {
+        task_id: taskId,
+        user_id: user.id,
+        content: content,
+      }
+    ])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+export const deleteTaskComment = async (commentId: string) => {
+  const { error } = await supabase
+    .from('comments')
+    .delete()
+    .eq('id', commentId);
+
+  if (error) throw new Error(error.message);
+};
+
+export const getCurrentUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
 };

@@ -9,6 +9,10 @@ interface Task {
   column_id: string;
   title: string;
   position: number;
+  description: string | null;
+  priority: 'low' | 'medium' | 'high' | string | null;
+  due_date: string | null;
+  assignee_id: string | null;
 }
 
 interface ColumnProps {
@@ -18,13 +22,13 @@ interface ColumnProps {
   onDeleteColumn: () => void;
   onAddTask: (title: string) => void;
   onDeleteTask: (taskId: string) => void;
+  onTaskClick: (task: Task) => void;
 }
 
-export const Column = ({ id, title, tasks, onDeleteColumn, onAddTask, onDeleteTask }: ColumnProps) => {
+export const Column = ({ id, title, tasks, onDeleteColumn, onAddTask, onDeleteTask, onTaskClick }: ColumnProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
 
-  // Регистрируем колонку как зону, куда можно дропать элементы
   const { setNodeRef } = useDroppable({ id });
 
   const handleAddTaskSubmit = (e: React.FormEvent) => {
@@ -71,7 +75,11 @@ export const Column = ({ id, title, tasks, onDeleteColumn, onAddTask, onDeleteTa
               key={task.id}
               id={task.id}
               title={task.title}
+              priority={task.priority}
+              dueDate={task.due_date}  
+              assigneeId={task.assignee_id} 
               onDelete={() => onDeleteTask(task.id)}
+              onClick={() => onTaskClick(task)}
             />
           ))}
         </SortableContext>
