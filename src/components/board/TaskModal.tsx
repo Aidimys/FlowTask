@@ -59,6 +59,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     enabled: !!task?.id && isOpen,
   });
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const addCommentMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!currentUserId) throw new Error('Пользователь не авторизован');
