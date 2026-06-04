@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBoardData } from '../hooks/useBoardData';
 import { Column } from '../components/board/Column';
 import { TaskModal } from '../components/board/TaskModal'; 
+import { ThemeToggle } from '../components/shared/ThemeToggle';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,13 +42,11 @@ export const BoardPage = () => {
   const [isOwner, setIsOwner] = useState(false);
   const queryClient = useQueryClient();
 
-  // === СТЕЙТЫ ДЛЯ СИСТЕМЫ ФИЛЬТРАЦИИ И ПОИСКА ===
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState(''); // 'all', 'today', 'overdue', 'has_deadline'
+  const [dateFilter, setDateFilter] = useState('');
 
-  // === СТЕЙТЫ ДЛЯ ХОТКЕЯ N (БЫСТРОЕ СОЗДАНИЕ) ===
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [quickTaskColumnId, setQuickTaskColumnId] = useState('');
@@ -58,18 +57,15 @@ export const BoardPage = () => {
     enabled: !!boardId,
   });
 
-  // Автоматически выбираем первую колонку по умолчанию для быстрого создания
   useEffect(() => {
     if (columns && columns.length > 0 && !quickTaskColumnId) {
       setQuickTaskColumnId(columns[0].id);
     }
   }, [columns, quickTaskColumnId]);
 
-  // Глобальный слушатель хоткея 'N' / 'Т'
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'n' || e.key === 'т' || e.key === 'Т') {
-        // Защита: игнорируем, если фокус в инпуте, textarea или текстовом редакторе
         if (
           document.activeElement?.tagName === 'INPUT' || 
           document.activeElement?.tagName === 'TEXTAREA' ||
@@ -248,12 +244,14 @@ export const BoardPage = () => {
             </button>
           </form>
 
+          <ThemeToggle />
           <button
             onClick={() => navigate('/profile')}
             className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 transition shadow-xs cursor-pointer"
           >
             <User className="h-4 w-4 text-slate-500" />
           </button>
+          
         </div>
       </header>
 

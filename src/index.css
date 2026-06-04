@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
 body {
   background-color: rgb(248 250 252); /* Стили Slate-50 вручную, так как @apply в v4 работает внутри слоев */
   color: rgb(15 23 42); /* Slate-900 */
@@ -22,4 +23,68 @@ body {
   &::-webkit-scrollbar-thumb:hover {
     background-color: rgb(148 163 184); /* slate-400 */
   }
+}
+:root {
+  --bg-app: #f8fafc;       /* slate-50 (основной фон приложения) */
+  --bg-surface: #ffffff;   /* white (шапки, карточки, панели) */
+  --text-main: #1e293b;    /* slate-800 (основной текст) */
+  --text-muted: #64748b;   /* slate-500 (второстепенный текст/иконки) */
+  --border-main: #e2e8f0;  /* slate-200 (границы и разделители) */
+}
+
+.dark {
+  --bg-app: #0f172a;       /* slate-900 (тёмный фон приложения) */
+  --bg-surface: #1e293b;   /* slate-800 (тёмные карточки и шапка) */
+  --text-main: #f8fafc;    /* slate-50 (светлый текст) */
+  --text-muted: #94a3b8;   /* slate-400 (светло-серый текст) */
+  --border-main: #334155;  /* slate-700 (тёмные границы) */
+}
+
+/* ==========================================================================
+   ГЛОБАЛЬНЫЙ АВТО-ПЕРЕХВАТ КЛАССОВ (Убирает дублирование в React)
+   ========================================================================== */
+
+/* 1. Настраиваем базовый сброс для body */
+body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* 2. Магия: переопределяем стандартные утилиты Tailwind при активном .dark.
+   Теперь везде, где написано bg-white, в тёмной теме подставится нужный цвет! */
+.dark {
+  /* Перекрашиваем фоны */
+  .bg-white { background-color: var(--bg-surface) !important; }
+  .bg-slate-50 { background-color: var(--bg-app) !important; }
+  .bg-slate-100 { background-color: var(--border-main) !important; }
+  
+  /* Перекрашиваем границы */
+  .border-slate-200, .border-slate-100 { border-color: var(--border-main) !important; }
+  
+  /* Перекрашиваем тексты */
+  .text-slate-800, .text-slate-900 { color: var(--text-main) !important; }
+  .text-slate-700, .text-slate-600 { color: var(--text-muted) !important; }
+  
+  /* Инпуты, селекторы и текстареа */
+  input, select, textarea {
+    background-color: var(--bg-app) !important;
+    border-color: var(--border-main) !important;
+    color: var(--text-main) !important;
+  }
+  
+  /* Инпуты внутри фокуса/активности */
+  input:focus, select:focus {
+    background-color: var(--bg-surface) !important;
+  }
+  .rounded-full {
+    color: var(--text-main) !important;
+  }
+}
+
+/* Плавный переход для всех элементов при смене темы */
+header, main, div, input, select, button {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

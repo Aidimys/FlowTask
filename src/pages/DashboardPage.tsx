@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBoards } from '../hooks/useBoards';
 import { useAuth } from '../providers/AuthProvider';
 import { Plus, Trash2, Layout, LogOut, FolderKanban, User } from 'lucide-react';
+import { ThemeToggle } from '../components/shared/ThemeToggle';
 
 export const DashboardPage = () => {
   const { boards, isLoading, createBoard, deleteBoard, isCreating, isDeleting } = useBoards();
@@ -41,6 +42,7 @@ export const DashboardPage = () => {
             >
               <User className="h-4 w-4 text-slate-500" />
             </button>
+            <ThemeToggle />
             <button
               onClick={() => signOut()}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-red-600 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition"
