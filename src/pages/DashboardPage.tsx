@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBoards } from '../hooks/useBoards';
 import { useAuth } from '../providers/AuthProvider';
-import { Plus, Trash2, Layout, LogOut, FolderKanban } from 'lucide-react';
+import { Plus, Trash2, Layout, LogOut, FolderKanban, User } from 'lucide-react';
 
 export const DashboardPage = () => {
   const { boards, isLoading, createBoard, deleteBoard, isCreating, isDeleting } = useBoards();
@@ -35,7 +35,12 @@ export const DashboardPage = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600 font-medium hidden sm:inline">{user?.email}</span>
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 transition shadow-xs cursor-pointer"
+            >
+              <User className="h-4 w-4 text-slate-500" />
+            </button>
             <button
               onClick={() => signOut()}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-red-600 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition"

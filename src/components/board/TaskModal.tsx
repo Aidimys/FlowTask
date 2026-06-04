@@ -147,7 +147,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 <option value="">Не назначен</option>
                 {members?.map((member) => (
                   <option key={member.user_id} value={member.user_id}>
-                    {member.full_name ? `${member.full_name} (${member.user_email})` : member.user_email}
+                    {member.full_name ? `${member.full_name}` : member.user_email}
                   </option>
                 ))}
               </select>
@@ -240,7 +240,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 comments.map((comment: any) => {
                   const author = members?.find((m) => m.user_id === comment.user_id);
                   const authorName = author?.full_name || author?.user_email || 'Пользователь';
-                  const authorAvatar = author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_id}`;
+                  const authorAvatar = author?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${comment.user_id}`;
                   const isMyComment = comment.user_id === currentUserId;
 
                   return (

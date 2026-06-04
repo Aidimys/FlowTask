@@ -19,13 +19,14 @@ interface ColumnProps {
   id: string;
   title: string;
   tasks: Task[];
+  members: any[];
   onDeleteColumn: () => void;
   onAddTask: (title: string) => void;
   onDeleteTask: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
 }
 
-export const Column = ({ id, title, tasks, onDeleteColumn, onAddTask, onDeleteTask, onTaskClick }: ColumnProps) => {
+export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, onDeleteTask, onTaskClick }: ColumnProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
 
@@ -78,6 +79,7 @@ export const Column = ({ id, title, tasks, onDeleteColumn, onAddTask, onDeleteTa
               priority={task.priority}
               dueDate={task.due_date}  
               assigneeId={task.assignee_id} 
+              members={members}
               onDelete={() => onDeleteTask(task.id)}
               onClick={() => onTaskClick(task)}
             />

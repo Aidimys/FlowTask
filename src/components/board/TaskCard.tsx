@@ -45,8 +45,9 @@ export const TaskCard: React.FC<any> = (props) => {
     low: 'bg-green-50 text-green-700 border-green-100',
   };
 
-  const assignee = members?.find((m: any) => m?.user_id === assigneeId);
-  const avatarUrl = assignee?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${assigneeId}`;
+  const assignee = members?.find((m: any) => m?.id === assigneeId || m?.user_id === assigneeId);
+  console.log('Найденный исполнитель:', assignee);
+  const avatarUrl = assignee?.avatar_url || task?.profiles?.avatar_url || (assigneeId ? `https://api.dicebear.com/7.x/lorelei/svg?seed=${assigneeId}` : '');
 
   return (
     <div
@@ -93,7 +94,7 @@ export const TaskCard: React.FC<any> = (props) => {
         {assigneeId && (
           <div 
             className="h-6 w-6 rounded-full border border-white shadow-xs bg-slate-100 overflow-hidden shrink-0" 
-            title={assignee?.full_name || assignee?.user_email || 'Исполнитель'}
+            title={assignee?.name || assignee?.full_name || 'Исполнитель'}
           >
             <img
               src={avatarUrl}

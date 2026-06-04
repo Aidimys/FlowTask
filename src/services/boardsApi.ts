@@ -189,7 +189,7 @@ export const getBoardMembers = async (boardId: string) => {
     user_id: m.user_id,
     user_email: m.user_email,
     full_name: m.full_name || '',
-    avatar_url: m.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_id}`
+    avatar_url: m.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${m.user_id}`
   }));
 };
 

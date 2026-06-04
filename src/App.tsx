@@ -3,6 +3,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { BoardPage } from './pages/BoardPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function App() {
   return (
@@ -27,7 +28,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
-
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

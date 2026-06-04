@@ -8,10 +8,9 @@ import { ArrowLeft, Layout, Plus, UserPlus, Trash2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../services/supabase';
-// ИМПОРТ ИСПРАВЛЕН: подключаем наш файл апи
 import * as api from '../services/boardsApi';
+import { User } from 'lucide-react';
 
-// ТИПЫ ИСПРАВЛЕНЫ: убрали string | null из приоритетов для совместимости с Column
 interface Task {
   id: string;
   column_id: string;
@@ -69,7 +68,6 @@ export const BoardPage = () => {
     }
   });
 
-  // МУТАЦИЯ ИСПРАВЛЕНА: теперь возвращает чистый Promise, убирая ошибку TS
   const deleteBoardMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('boards').delete().eq('id', boardId!);
@@ -139,7 +137,6 @@ export const BoardPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* ХЕДЕР С ИНТЕГРИРОВАННЫМИ ИНСТРУМЕНТАМИ ДОСТУПА */}
       <header className="bg-white border-b border-slate-200 min-h-16 py-2 flex flex-wrap items-center shrink-0 px-6 justify-between sticky top-0 z-10 gap-4">
         <div className="flex items-center gap-4">
           <button
@@ -170,8 +167,8 @@ export const BoardPage = () => {
             )}
           </div>
         </div>
-
-        {/* Форма приглашения пользователей по Email */}
+        <div className="flex flex-wrap items-center shrink-0 px-6 justify-between gap-4">
+          {/* Форма приглашения пользователей по Email */}
         <form onSubmit={handleInvite} className="flex items-center gap-2">
           <input
             type="email"
@@ -190,6 +187,13 @@ export const BoardPage = () => {
             <UserPlus className="h-4 w-4" />
           </button>
         </form>
+
+        <button
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 transition shadow-xs cursor-pointer"
+        >
+          <User className="h-4 w-4 text-slate-500" />
+        </button></div>
       </header>
 
       <main className="flex-1 overflow-x-auto p-6 flex gap-5 items-start minimal-scrollbar">
@@ -202,6 +206,7 @@ export const BoardPage = () => {
                 id={column.id}
                 title={column.title}
                 tasks={columnTasks as any}
+                members={members}
                 onDeleteColumn={() => deleteColumn(column.id)}
                 onAddTask={(title) => createTask({ columnId: column.id, title, position: columnTasks.length })}
                 onDeleteTask={(taskId) => deleteTask(taskId)}
