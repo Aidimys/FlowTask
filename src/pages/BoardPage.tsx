@@ -4,6 +4,8 @@ import { useBoardData } from '../hooks/useBoardData';
 import { Column } from '../components/board/Column';
 import { TaskModal } from '../components/board/TaskModal'; 
 import { ThemeToggle } from '../components/shared/ThemeToggle';
+import { ActivitySidebar } from '../components/board/ActivitySidebar';
+import { History } from 'lucide-react';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -50,6 +52,8 @@ export const BoardPage = () => {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [quickTaskColumnId, setQuickTaskColumnId] = useState('');
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const { data: boardInfo } = useQuery({
     queryKey: ['board_info', boardId],
@@ -225,6 +229,13 @@ export const BoardPage = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center shrink-0 px-6 justify-between gap-4">
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition cursor-pointer border border-slate-200 shadow-xs h-9 w-9 flex items-center justify-center bg-white"
+            title="История изменений"
+          >
+            <History className="h-4 w-4" />
+          </button>
           <form onSubmit={handleInvite} className="flex items-center gap-2">
             <input
               type="email"
@@ -473,6 +484,11 @@ export const BoardPage = () => {
         onSave={(taskId, updates) => {
           updateTaskDetails({ taskId, updates });
         }}
+      />
+      <ActivitySidebar
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        boardId={boardId || ''}
       />
     </div>
   );

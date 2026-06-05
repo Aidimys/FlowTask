@@ -16,6 +16,7 @@ export const useBoardData = (boardId: string) => {
         { event: '*', schema: 'public', table: 'columns' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
         }
       )
       .on(
@@ -23,6 +24,7 @@ export const useBoardData = (boardId: string) => {
         { event: '*', schema: 'public', table: 'tasks' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
         }
       )
       .subscribe();
@@ -55,40 +57,65 @@ export const useBoardData = (boardId: string) => {
       const currentPos = columnsQuery.data?.length || 0;
       return api.createColumn(boardId, title, currentPos);
     },
-    onSuccess: () => {
+    onSuccess: (newColumn) => {
       queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      if (newColumn) {
+        api.createActivityLog(boardId, `создал(а) колонку "${newColumn.title}"`);
+      }
       toast.success('Колонка создана');
     },
   });
 
   const deleteColumnMutation = useMutation({
     mutationFn: (id: string) => api.deleteColumn(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Находим имя удаляемой колонки в кэше до инвалидации
+      const columnTitle = columnsQuery.data?.find(c => c.id === id)?.title || '';
+      
       queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      api.createActivityLog(boardId, `удалил(а) колонку "${columnTitle}"`);
       toast.success('Колонка удалена');
     },
   });
 
   const updateColumnTitleMutation = useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) => api.updateColumnTitle(id, title),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      api.createActivityLog(boardId, `переименовал(а) колонку в "${variables.title}"`);
     },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: ({ columnId, title, position }: { columnId: string; title: string; position: number }) => 
       api.createTask(columnId, title, position),
-    onSuccess: () => {
+    onSuccess: (newTask) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      if (newTask) {
+        api.createActivityLog(boardId, `добавил(а) задачу "${newTask.title}"`);
+      }
       toast.success('Задача добавлена');
     },
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: (id: string) => api.deleteTask(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Находим имя удаляемой задачи в кэше
+      const taskTitle = tasksQuery.data?.find(t => t.id === id)?.title || '';
+      
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      api.createActivityLog(boardId, `удалил(а) задачу "${taskTitle}"`);
       toast.success('Задача удалена');
     },
   });
@@ -96,16 +123,34 @@ export const useBoardData = (boardId: string) => {
   const moveTaskMutation = useMutation({
     mutationFn: ({ taskId, columnId, position }: { taskId: string; columnId: string; position: number }) =>
       api.updateTaskPosition(taskId, columnId, position),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const currentTask = tasksQuery.data?.find(t => t.id === variables.taskId);
+      const targetColumn = columnsQuery.data?.find(c => c.id === variables.columnId);
+      
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      if (currentTask && targetColumn) {
+        api.createActivityLog(
+          boardId, 
+          `перенёс(ла) задачу "${currentTask.title}" в колонку "${targetColumn.title}"`
+        );
+      }
     },
   });
 
   const updateTaskDetailsMutation = useMutation({
-    mutationFn: ({taskId, updates}: { taskId: string; updates: { description?: string; priority?: 'low' | 'medium' | 'high' } }) => 
+    mutationFn: ({taskId, updates}: { taskId: string; updates: any }) => 
       api.updateTaskDetails(taskId, updates),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const currentTask = tasksQuery.data?.find(t => t.id === variables.taskId);
+      
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      if (currentTask) {
+        api.createActivityLog(boardId, `обновил(а) детали задачи "${currentTask.title}"`);
+      }
       toast.success('Детали задачи обновлены');
     }
   });

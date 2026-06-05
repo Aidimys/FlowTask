@@ -234,7 +234,6 @@ export const deleteTaskComment = async (commentId: string) => {
 
 
 export const inviteUserByEmail = async (boardId: string, email: string) => {
-  // Кастим rpc к any, чтобы разрешить кастомное имя функции
   const { data: userId, error: rpcError } = await (supabase as any)
     .rpc('get_user_id_by_email', { email_text: email.trim() });
 
@@ -265,4 +264,33 @@ export const getBoardDetails = async (boardId: string) => {
 export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
+};
+
+export const getActivityLogs = async (boardId: string) => {
+  const { data, error } = await (supabase as any)
+    .from('activity_logs')
+    .select(`
+      id,
+      action_text,
+      created_at,
+      profiles (
+        name,
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq('board_id', boardId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+export const createActivityLog = async (boardId: string, actionText: string) => {
+  const { error } = await (supabase as any)
+    .from('activity_logs')
+    .insert([{ board_id: boardId, action_text: actionText }]);
+  
+  if (error) throw new Error(error.message);
 };
