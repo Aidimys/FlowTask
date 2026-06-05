@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# TaskFlow — Реаскомплект Канбан-Доски с Realtime-синхронизацией
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Удобное и современное приложение для управления задачами и проектами в реальном времени, созданное на базе React, TypeScript и Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Ссылка на деплой
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+[👉 Открыть работающее приложение на Vercel](СЮДА_ВСТАВЬ_ССЫЛКУ_ПОСЛЕ_ДЕПЛОЯ)
 
-## React Compiler
+### 🔑 Тестовый аккаунт для проверки (Demo):
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Email:** `demo@taskflow.ru` (или твой тестовый email)
+- **Пароль:** `12345678` (или твой тестовый пароль)
+  _(Вы можете использовать этот аккаунт или зарегистрировать свой собственный)_
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠 Технологический стек
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Frontend:** React (Vite), TypeScript, Tailwind CSS
+- **State Management & Data Fetching:** TanStack Query (React Query v5)
+- **Database & Auth & Realtime:** Supabase (PostgreSQL, Realtime Channels, RLS Policies)
+- **Drag and Drop:** `@dnd-kit/core`
+- **Уведомления:** `sonner` / `react-hot-toast`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 📋 Реализованный функционал (Уровни ТЗ)
+
+### 🟢 MVP (Базовый уровень)
+
+- Авторизация пользователей (Email/Пароль) через Supabase Auth.
+- Создание, переименование и удаление досок.
+- Создание колонок задач (автоматические дефолтные колонки To Do, In Progress, Done при создании доски).
+- Добавление, редактирование деталей (описание, приоритеты) и удаление задач.
+
+### 🟡 Full (Продвинутый уровень)
+
+- **Drag and Drop задач** между колонками с сохранением позиций.
+- **Приглашение участников на доску по Email** (с использованием хранимых процедур RPC в Postgres для поиска ID пользователей).
+- **Ограничение прав доступа**: только создатель (Owner) может полностью удалить доску.
+
+### 🔵 Bonus (Дополнительный уровень)
+
+- **Realtime-синхронизация**: Изменения колонок и задач мгновенно отображаются у всех участников доски без перезагрузки страницы (через Postgres Changes в Supabase).
+- **Живой лог активности (Activity Logs)**: Боковая панель отображает историю действий участников («Кто-то добавил задачу...», «Иван переименовал колонку...») с автоматическим отслеживанием профилей.
+
+---
+
+## 💻 Инструкция по локальному запуску
+
+1. Клонируйте репозиторий:
+   ```bash
+   git clone <ссылка_на_твой_репозиторий>
+   cd taskflow
+   ```
+2. Установите зависимости:
+
+```
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+3. Настройте переменные окружения:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+cp .env.example .env
+```
+
+Заполните ключи VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY данными из вашего проекта Supabase.
+
+4. Запустите проект в режиме разработки:
+
+```
+npm run dev
+```
+
+Что можно улучшить при наличии времени:
+
+- Сортировка при Drag and Drop: Сделать полноценный расчет индексов (позиций) элементов при перемещении внутри одной колонки.
+
+- Загрузка вложений: Реализовать интеграцию с Supabase Storage для прикрепления файлов и изображений к карточкам задач.
+
+- Архивация: Добавить корзину или архив для удаленных задач, чтобы их можно было восстановить.
