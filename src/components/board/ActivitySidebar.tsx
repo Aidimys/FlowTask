@@ -18,7 +18,6 @@ export const ActivitySidebar = ({ isOpen, onClose, boardId }: ActivitySidebarPro
 
   if (!isOpen) return null;
 
-  // Форматирование даты в удобочитаемый вид (например, "14:32")
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -29,10 +28,7 @@ export const ActivitySidebar = ({ isOpen, onClose, boardId }: ActivitySidebarPro
 
   return (
     <>
-      {/* Задний полупрозрачный фон для закрытия */}
       <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-xs transition-opacity" onClick={onClose} />
-
-      {/* Сама панель */}
       <div className="fixed top-0 right-0 z-50 h-full w-80 md:w-96 bg-white border-l border-slate-200 shadow-2xl flex flex-col transition-transform duration-300 transform translate-x-0">
         
         {/* Шапка шторки */}
