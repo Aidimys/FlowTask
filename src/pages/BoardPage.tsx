@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../services/supabase';
 import * as api from '../services/boardsApi';
+import { calculateDragEndResult } from '../utils/boardUtils';
 
 type Task = ReturnType<typeof useBoardData>['tasks'][number];
 type BoardMember = ReturnType<typeof useBoardData>['members'][number];
@@ -154,39 +155,12 @@ export const BoardPage = () => {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = String(active.id);
-    const overId = String(over.id);
-
-    const draggedTask = tasks.find(t => t.id === taskId);
-    if (!draggedTask) return;
-
-    const isOverColumn = columns.some(c => c.id === overId);
-    
-    // Избавляемся от мутаций и no-useless-assignment с помощью декларативного подхода
-    const overTask = !isOverColumn ? tasks.find(t => t.id === overId) : null;
-    if (!isOverColumn && !overTask) return;
-
-    const targetColumnId = isOverColumn ? overId : overTask!.column_id;
-    
-    const destinationIndex = isOverColumn
-      ? tasks.filter(t => t.column_id === targetColumnId).length
-      : tasks
-          .filter(t => t.column_id === targetColumnId)
-          .sort((a, b) => a.position - b.position)
-          .findIndex(t => t.id === overId);
-
-    if (!targetColumnId || destinationIndex === -1) return;
-    if (draggedTask.column_id !== targetColumnId || draggedTask.position !== destinationIndex) {
-      moveTask({ 
-        taskId, 
-        columnId: targetColumnId, 
-        position: destinationIndex 
-      });
-    }
-  };
+  const result = calculateDragEndResult(event, tasks, columns);
+  
+  if (result) {
+    moveTask(result);
+  }
+};
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

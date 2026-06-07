@@ -3,6 +3,18 @@ import { type ReactNode } from 'react';
 import { toast } from 'react-hot-toast'; 
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Что-то пошло не так';
+      toast.error(`Ошибка загрузки данных: ${message}`);
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Ошибка сервера';
+      toast.error(`Не удалось выполнить операцию: ${message}`);
+    },
+  }),
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
@@ -10,16 +22,6 @@ const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, 
     },
   },
-  queryCache: new QueryCache({
-    onError: (error: any) => {
-      toast.error(`Ошибка загрузки данных: ${error.message || 'Что-то пошло не так'}`);
-    },
-  }),
-  mutationCache: new MutationCache({
-    onError: (error: any) => {
-      toast.error(`Не удалось выполнить операцию: ${error.message || 'Ошибка сервера'}`);
-    },
-  }),
 });
 
 export const QueryProvider = ({ children }: { children: ReactNode }) => {
