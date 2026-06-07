@@ -5,6 +5,7 @@ import { Column } from '../components/board/Column';
 import { TaskModal } from '../components/board/TaskModal'; 
 import { ThemeToggle } from '../components/shared/ThemeToggle';
 import { ActivitySidebar } from '../components/board/ActivitySidebar';
+import { BoardSkeleton } from '../components/shared/BoardSkeleton';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X, History } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -142,13 +143,8 @@ export const BoardPage = () => {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    );
-  }
-
+  return <BoardSkeleton />;
+}
   const handleCreateColumn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newColumnTitle.trim()) return;
