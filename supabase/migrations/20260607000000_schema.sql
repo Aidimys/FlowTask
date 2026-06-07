@@ -1,3 +1,4 @@
+-- См. структуру таблиц TaskFlow
 CREATE TABLE public.boards (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -6,6 +7,7 @@ CREATE TABLE public.boards (
   CONSTRAINT boards_pkey PRIMARY KEY (id),
   CONSTRAINT boards_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.board_members (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL,
@@ -15,6 +17,7 @@ CREATE TABLE public.board_members (
   CONSTRAINT board_members_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
   CONSTRAINT board_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.columns (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL,
@@ -23,6 +26,7 @@ CREATE TABLE public.columns (
   CONSTRAINT columns_pkey PRIMARY KEY (id),
   CONSTRAINT columns_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id)
 );
+
 CREATE TABLE public.tasks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   column_id uuid NOT NULL,
@@ -39,6 +43,7 @@ CREATE TABLE public.tasks (
   CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   task_id uuid NOT NULL,
@@ -49,6 +54,7 @@ CREATE TABLE public.comments (
   CONSTRAINT comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
   CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   name text,
@@ -57,6 +63,7 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
+
 CREATE TABLE public.activity_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   board_id uuid NOT NULL,
@@ -68,43 +75,82 @@ CREATE TABLE public.activity_logs (
   CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
 
--- Включаем защиту на таблицах
+-- =====================================================================
+-- Включаем защиту ROW LEVEL SECURITY на таблицах
+-- =====================================================================
 ALTER TABLE public.boards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.board_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.columns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 
--- Политики для досок (просмотр владельцами и участниками)
-CREATE POLICY "Users can view boards they are members or owners of" ON public.boards
-    FOR SELECT USING (
-        auth.uid() = owner_id OR 
-        EXISTS (SELECT 1 FROM public.board_members WHERE board_members.board_id = boards.id AND board_members.user_id = auth.uid())
-    );
+-- =====================================================================
+-- Хелпер-функция для безопасного обхода рекурсии в RLS
+-- =====================================================================
+CREATE OR REPLACE FUNCTION public.get_accessible_boards(user_id uuid)
+RETURNS SETOF uuid
+LANGUAGE sql
+SECURITY DEFINER   -- Позволяет читать таблицы в обход RLS, разрывая бесконечный цикл
+SET search_path = public
+STABLE             -- Кэширует выполнение внутри одного транзакционного запроса
+AS $$
+  SELECT id FROM public.boards WHERE owner_id = $1
+  UNION
+  SELECT board_id FROM public.board_members WHERE user_id = $1;
+$$;
 
--- Политики для участников (видеть участников могут только члены этой доски)
-CREATE POLICY "Members can view board participants" ON public.board_members
-    FOR SELECT USING (
-        EXISTS (SELECT 1 FROM public.board_members bm WHERE bm.board_id = board_members.board_id AND bm.user_id = auth.uid())
-    );
+-- =====================================================================
+-- ПОЛИТИКИ ДЛЯ ТАБЛИЦЫ BOARDS (Доски)
+-- =====================================================================
+CREATE POLICY "boards_select_policy" ON public.boards
+  FOR SELECT USING (id IN (SELECT public.get_accessible_boards(auth.uid())));
 
+CREATE POLICY "boards_insert_policy" ON public.boards
+  FOR INSERT WITH CHECK (auth.uid() = owner_id);
 
--- Создание функции для поиска ID пользователя по Email
+CREATE POLICY "boards_update_policy" ON public.boards
+  FOR UPDATE USING (auth.uid() = owner_id);
+
+CREATE POLICY "boards_delete_policy" ON public.boards
+  FOR DELETE USING (auth.uid() = owner_id);
+
+-- =====================================================================
+-- ПОЛИТИКИ ДЛЯ ТАБЛИЦЫ BOARD_MEMBERS (Участники досок)
+-- =====================================================================
+CREATE POLICY "board_members_select_policy" ON public.board_members
+  FOR SELECT USING (board_id IN (SELECT public.get_accessible_boards(auth.uid())));
+
+CREATE POLICY "board_members_insert_policy" ON public.board_members
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.boards WHERE id = board_id AND owner_id = auth.uid())
+  );
+
+-- Изменить/удалить участника может либо владелец доски, либо сам участник (выход из доски)
+CREATE POLICY "board_members_delete_policy" ON public.board_members
+  FOR DELETE USING (
+    user_id = auth.uid() OR 
+    EXISTS (SELECT 1 FROM public.boards WHERE id = board_id AND owner_id = auth.uid())
+  );
+
+-- =====================================================================
+-- ПОЛЬЗОВАТЕЛЬСКИЕ ФУНКЦИИ И VIEW
+-- =====================================================================
+
+-- Создание функции для поиска ID пользователя по Email (исправлен запрос к auth.users)
 CREATE OR REPLACE FUNCTION public.get_user_id_by_email(target_email text)
 RETURNS uuid
 LANGUAGE plpgsql
-SECURITY DEFINER -- позволяет обходить ограничения схем auth
+SECURITY DEFINER -- позволяет заглядывать в закрытую схему auth
 AS $$
 DECLARE
     found_user_id uuid;
 BEGIN
-    -- Ищем пользователя в таблице профилей по email
+    -- Ищем пользователя напрямую в системной таблице auth.users по email
     SELECT id INTO found_user_id
-    FROM public.profiles
+    FROM auth.users
     WHERE email = target_email
     LIMIT 1;
 
-    -- Если не нашли, возвращаем NULL (фронтенд поймет, что юзера нет)
     RETURN found_user_id;
 END;
 $$;
