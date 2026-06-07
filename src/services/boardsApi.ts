@@ -7,7 +7,7 @@ export const getBoards = async () => {
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || []; // Гарантируем массив
 };
 
 export const createBoard = async (title: string) => {
@@ -61,7 +61,7 @@ export const getColumns = async (boardId: string) => {
     .order('position', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || []; // Гарантируем массив
 };
 
 export const createColumn = async (boardId: string, title: string, position: number) => {
@@ -72,6 +72,7 @@ export const createColumn = async (boardId: string, title: string, position: num
     .single();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error('Не удалось создать колонку');
   return data;
 };
 
@@ -110,9 +111,8 @@ export const getTasks = async (boardId: string) => {
     .order('position', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || []; // Гарантируем массив задач без null
 };
-
 
 export const createTask = async (columnId: string, title: string, position: number) => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -133,9 +133,9 @@ export const createTask = async (columnId: string, title: string, position: numb
     .single();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error('Не удалось создать задачу');
   return data;
 };
-
 
 export const deleteTask = async (taskId: string) => {
   const { error } = await supabase
@@ -146,7 +146,6 @@ export const deleteTask = async (taskId: string) => {
   if (error) throw new Error(error.message);
 };
 
-
 export const updateTaskPosition = async (taskId: string, columnId: string, position: number) => {
   const { error } = await supabase
     .from('tasks')
@@ -154,16 +153,18 @@ export const updateTaskPosition = async (taskId: string, columnId: string, posit
     .eq('id', taskId);
 
   if (error) throw new Error(error.message);
-
 };
 
 export const updateTaskDetails = async (
   taskId: string, 
   updates: { 
-    description?: string; 
-    priority?: 'low' | 'medium' | 'high';
+    title?: string;
+    description?: string | null; // Теперь null разрешен!
+    priority?: string | null;    // Теперь null разрешен!
     due_date?: string | null;
     assignee_id?: string | null;
+    column_id?: string;
+    position?: number;
   }
 ) => {
   const { data, error } = await supabase
@@ -174,25 +175,50 @@ export const updateTaskDetails = async (
     .single();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error('Не удалось обновить задачу');
   return data;
 };
 
-export const getBoardMembers = async (boardId: string) => {
-  const { data, error } = await (supabase as any)
-    .from('board_members_with_emails')
-    .select('user_id, user_email, full_name, avatar_url')
+export interface BoardMember {
+  user_id: string;
+  user_email: string;
+  full_name: string;
+  avatar_url: string;
+  role: string;
+}
+
+export const getBoardMembers = async (boardId: string): Promise<BoardMember[]> => {
+  const { data: members, error: membersError } = await supabase
+    .from('board_members')
+    .select('user_id, role')
     .eq('board_id', boardId);
 
-  if (error) throw new Error(error.message);
+  if (membersError) throw membersError;
+  if (!members || members.length === 0) return [];
 
-  return (data || []).map((m: any) => ({
-    user_id: m.user_id,
-    user_email: m.user_email,
-    full_name: m.full_name || '',
-    avatar_url: m.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${m.user_id}`
-  }));
+  const userIds = members.map(m => m.user_id);
+  
+  // Запрашиваем full_name, avatar_url и name (если name используется под email/логин)
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url, name')
+    .in('id', userIds);
+
+  if (profilesError) throw profilesError;
+
+  return members.map(member => {
+    const profile = profiles?.find(p => p.id === member.user_id);
+    
+    return {
+      user_id: member.user_id,
+      role: member.role,
+      full_name: profile?.full_name || profile?.name || 'Пользователь',
+      avatar_url: profile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${member.user_id}`,
+      // Если в таблице profiles нет email, используем name или пустую строку
+      user_email: profile?.name || '' 
+    };
+  });
 };
-
 export const getTaskComments = async (taskId: string) => {
   const { data, error } = await supabase
     .from('comments')
@@ -223,6 +249,7 @@ export const createTaskComment = async (taskId: string, content: string) => {
   if (error) throw new Error(error.message);
   return data;
 };
+
 export const deleteTaskComment = async (commentId: string) => {
   const { error } = await supabase
     .from('comments')
@@ -232,20 +259,21 @@ export const deleteTaskComment = async (commentId: string) => {
   if (error) throw new Error(error.message);
 };
 
-
-export const inviteUserByEmail = async (boardId: string, email: string) => {
-  const { data: userId, error: rpcError } = await (supabase as any)
+export const inviteUserByEmail = async (boardId: string, email: string): Promise<void> => {
+  const { data: userId, error: rpcError } = await supabase
     .rpc('get_user_id_by_email', { email_text: email.trim() });
 
   if (rpcError) throw new Error(rpcError.message);
-  if (!userId) throw new Error('Пользователь с таким email не найден');
+  if (!userId) {
+    throw new Error('Пользователь с таким Email не зарегистрирован в системе');
+  }
 
   const { error: insertError } = await supabase
     .from('board_members')
     .insert([{ board_id: boardId, user_id: userId, role: 'member' }]);
 
   if (insertError) {
-    if (insertError.code === '23505') throw new Error('Этот... пользователь уже на доске');
+    if (insertError.code === '23505') throw new Error('Этот пользователь уже является участником доски');
     throw new Error(insertError.message);
   }
 };
@@ -267,7 +295,7 @@ export const getCurrentUser = async () => {
 };
 
 export const getActivityLogs = async (boardId: string) => {
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from('activity_logs')
     .select(`
       id,
@@ -284,11 +312,11 @@ export const getActivityLogs = async (boardId: string) => {
     .limit(50);
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || [];
 };
 
 export const createActivityLog = async (boardId: string, actionText: string) => {
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('activity_logs')
     .insert([{ board_id: boardId, action_text: actionText }]);
   

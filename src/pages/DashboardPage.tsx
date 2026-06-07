@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBoards } from '../hooks/useBoards';
 import { useAuth } from '../providers/AuthProvider';
@@ -13,20 +13,20 @@ export const DashboardPage = () => {
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleCreateBoard = (e: React.FormEvent) => {
+  const handleCreateBoard = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if(!newBoardTitle.trim()) return;
+    if (!newBoardTitle.trim()) return;
 
     createBoard(newBoardTitle.trim(), {
       onSuccess: () => {
         setNewBoardTitle('');
         setIsModalOpen(false);
-    }
+      }
     });
-    };
+  };
 
-    return (
-        <div className="min-h-screen bg-slate-50">
+  return (
+    <div className="min-h-screen bg-slate-50">
       {/* Шапка */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -45,7 +45,7 @@ export const DashboardPage = () => {
             <ThemeToggle />
             <button
               onClick={() => signOut()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-red-600 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-600 hover:text-red-600 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 transition cursor-pointer"
             >
               <LogOut className="h-4 w-4" />
               <span>Выйти</span>
@@ -64,7 +64,7 @@ export const DashboardPage = () => {
           
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-sm cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Создать доску</span>
@@ -99,7 +99,7 @@ export const DashboardPage = () => {
                 </h2>
                 
                 <span className="text-xs text-slate-400">
-                  Создана: {new Date(board.created_at!).toLocaleDateString()}
+                  Создана: {board.created_at ? new Date(board.created_at).toLocaleDateString() : '—'}
                 </span>
 
                 {/* Кнопка удаления (только если текущий юзер — владелец) */}
@@ -112,7 +112,7 @@ export const DashboardPage = () => {
                         deleteBoard(board.id);
                       }
                     }}
-                    className="absolute top-4 right-4 text-slate-400 hover:text-red-500 p-1 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                    className="absolute top-4 right-4 text-slate-400 hover:text-red-500 p-1 rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 transition cursor-pointer"
                     title="Удалить доску"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -123,7 +123,7 @@ export const DashboardPage = () => {
           </div>
         )}
 
-        {/* Простейшее модальное окно создания доски */}
+        {/* Модальное окно создания доски */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
@@ -147,14 +147,14 @@ export const DashboardPage = () => {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg text-sm transition"
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg text-sm transition cursor-pointer"
                   >
                     Отмена
                   </button>
                   <button
                     type="submit"
                     disabled={isCreating || !newBoardTitle.trim()}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition cursor-pointer"
                   >
                     {isCreating ? 'Создание...' : 'Создать'}
                   </button>

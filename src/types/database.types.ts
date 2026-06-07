@@ -7,13 +7,50 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          id: string
+          board_id: string
+          action_text: string
+          created_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          board_id: string
+          action_text: string
+          created_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          board_id?: string
+          id?: string
+          action_text?: string
+          created_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       board_members: {
         Row: {
           board_id: string
@@ -41,6 +78,13 @@ export type Database = {
             referencedRelation: "boards"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "board_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
         ]
       }
       boards: {
@@ -130,16 +174,22 @@ export type Database = {
           avatar_url: string | null
           id: string
           name: string | null
+          full_name: string | null
+          email: string | null
         }
         Insert: {
           avatar_url?: string | null
           id: string
           name?: string | null
+          full_name?: string | null
+          email?: string | null
         }
         Update: {
           avatar_url?: string | null
           id?: string
           name?: string | null
+          full_name?: string | null
+          email?: string | null
         }
         Relationships: []
       }
@@ -195,7 +245,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_id_by_email: {
+        Args: {
+          email_text: string
+        }
+        Returns: string | null
+      }
     }
     Enums: {
       [_ in never]: never
@@ -207,7 +262,6 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<

@@ -22,7 +22,7 @@ export const LoginPage = () => {
     }
   }, [user, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!email || !password) {
@@ -64,8 +64,10 @@ export const LoginPage = () => {
         toast.success('С возвращением!');
         navigate('/dashboard');
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Произошла ошибка при аутентификации');
+    } catch (error) {
+      // Безопасно извлекаем сообщение об ошибке без использования any
+      const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при аутентификации';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

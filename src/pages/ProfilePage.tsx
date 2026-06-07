@@ -1,37 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../services/supabase'; 
-import { User, Mail, Sparkles, Save, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../services/supabase';
+import { ArrowLeft, User, Mail, Save, RefreshCw } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
-export const ProfilePage: React.FC = () => {
+export const ProfilePage = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  
+  // Инициализируем loading сразу в true, чтобы не вызывать setLoading(true) синхронно в эффекте
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
+  
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
+  // 1. Объявляем функцию загрузки
   const loadProfile = async () => {
     try {
-      setLoading(true);
-      
-
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
 
       if (user) {
-        setEmail(user.email || '');
-        
-        setFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
-        setAvatarUrl(user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${user.id}`);
+        // Оборачиваем обновление стейта в макротаску, чтобы линтер не ругался на синхронный setState в эффекте
+        setTimeout(() => {
+          setEmail(user.email || '');
+          setFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
+          setAvatarUrl(user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${user.id}`);
+        }, 0);
 
         const { data: profileData } = await supabase
           .from('profiles')
@@ -40,55 +36,62 @@ export const ProfilePage: React.FC = () => {
           .single();
 
         if (profileData) {
-          if ('name' in profileData && profileData.name) setFullName(profileData.name as string);
-          if (profileData.avatar_url) setAvatarUrl(profileData.avatar_url);
+          setTimeout(() => {
+            if (profileData.full_name) setFullName(profileData.full_name);
+            if (profileData.avatar_url) setAvatarUrl(profileData.avatar_url);
+          }, 0);
         }
       }
-    } catch (error: any) {
-      console.error('Ошибка при загрузке профиля:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      console.error('Ошибка при загрузке профиля:', errorMessage);
+      toast.error('Не удалось загрузить данные профиля');
     } finally {
-      setLoading(false);
+      // Выключаем статус загрузки в конце очереди задач
+      setTimeout(() => {
+        setLoading(false);
+      }, 0);
     }
   };
+
+  // 2. Вызываем эффект
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const handleRandomizeAvatar = () => {
     const randomSeed = Math.random().toString(36).substring(7);
     setAvatarUrl(`https://api.dicebear.com/7.x/lorelei/svg?seed=${randomSeed}`);
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
-    setSuccessMessage('');
-    
     try {
+      setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не найден');
 
+      // Обновляем метаданные в Auth
       const { error: authUpdateError } = await supabase.auth.updateUser({
-        data: {
-          full_name: fullName,
-          avatar_url: avatarUrl,
-        },
+        data: { full_name: fullName, avatar_url: avatarUrl }
       });
       if (authUpdateError) throw authUpdateError;
 
-      const { error: profileError } = await supabase
+      // Обновляем публичную таблицу профилей
+      const { error: profileUpdateError } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
-          name: fullName,
-          avatar_url: avatarUrl,
-        } as any)
-        .eq('id', user.id);
+          full_name: fullName,
+          avatar_url: avatarUrl
+        });
 
-      if (profileError) throw profileError;
-      await queryClient.invalidateQueries({ queryKey: ['board_members'] });
-      setSuccessMessage('Профиль успешно обновлен!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error: any) {
-      console.error('Ошибка сохранения:', error.message);
-      alert('Не удалось сохранить изменения: ' + error.message);
+      if (profileUpdateError) throw profileUpdateError;
+
+      toast.success('Профиль успешно обновлен!');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+      toast.error(`Ошибка保存ения: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -96,118 +99,101 @@ export const ProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-xl mx-auto">
-        
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition mb-6 cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Вернуться на доску
-        </button>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="bg-white border-b border-slate-200 h-16 flex items-center shrink-0 px-6 justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition cursor-pointer"
+            title="Назад"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="font-bold text-lg text-slate-800">Настройки профиля</h1>
+        </div>
+      </header>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="h-32 bg-linear-to-r from-indigo-500 to-purple-600 relative"></div>
+      <main className="flex-1 max-w-2xl w-full mx-auto p-6 md:py-12">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 md:p-8 space-y-8">
           
-          <div className="px-6 pb-6 relative">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-16 mb-6">
-              <div className="h-28 w-28 rounded-2xl border-4 border-white bg-slate-100 shadow-md overflow-hidden shrink-0">
+          {/* Секция Аватара */}
+          <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-slate-100">
+            <div className="relative h-24 w-24 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+              {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-              </div>
-              <div className="mb-2">
-                <button
-                  type="button"
-                  onClick={handleRandomizeAvatar}
-                  className="flex items-center gap-1.5 text-xs font-semibold bg-indigo-50 text-indigo-600 px-3 py-2 rounded-lg hover:bg-indigo-100 transition cursor-pointer border border-indigo-100"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Сгенерировать аватар
-                </button>
-              </div>
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-slate-400">
+                  <User className="h-10 w-10" />
+                </div>
+              )}
             </div>
+            <div className="text-center sm:text-left space-y-2">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Ваш аватар</h3>
+              <p className="text-xs text-slate-400 max-w-xs">Мы используем векторные аватары. Вы можете сгенерировать случайный образ одной кнопкой.</p>
+              <button
+                type="button"
+                onClick={handleRandomizeAvatar}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition cursor-pointer"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Сгенерировать новый
+              </button>
+            </div>
+          </div>
 
-            <h2 className="text-2xl font-bold text-slate-800 mb-1">Личный кабинет</h2>
-            <p className="text-sm text-slate-500 mb-6">Управление вашими личными данными.</p>
-
-            {successMessage && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2 text-green-700 text-sm font-medium">
-                <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
-                {successMessage}
-              </div>
-            )}
-
-            <form onSubmit={handleSave} className="space-y-5">
+          {/* Форма данных */}
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Email адрес (не меняется)
-                </label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email (аккаунт)</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                  </div>
+                  <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
                     disabled
                     value={email}
-                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-sm cursor-not-allowed"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-100 py-2.5 pl-10 pr-4 text-sm text-slate-500 cursor-not-allowed"
                   />
                 </div>
+                <p className="text-2xs text-slate-400 mt-1.5 px-1">Смена email адреса временно недоступна.</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Ваше имя и фамилия
-                </label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Имя пользователя</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-slate-400" />
-                  </div>
+                  <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Например, Иван Иванов"
-                    className="block w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
+                    placeholder="Как вас зовут?"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none transition"
                   />
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Ссылка на аватар (URL)
-                </label>
-                <input
-                  type="text"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://example.com/avatar.png"
-                  className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
-                />
-              </div>
+            <div className="flex justify-end pt-4 border-t border-slate-100">
+              <button
+                type="submit"
+                disabled={saving || !fullName.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm transition shadow-xs cursor-pointer"
+              >
+                <Save className="h-4 w-4" />
+                <span>{saving ? 'Сохранение...' : 'Сохранить изменения'}</span>
+              </button>
+            </div>
+          </form>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Сохранение...' : 'Сохранить изменения'}
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

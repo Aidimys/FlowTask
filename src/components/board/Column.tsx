@@ -3,30 +3,33 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core';
 import { TaskCard } from './TaskCard';
 import { Plus, X, Trash2 } from 'lucide-react';
+import { useBoardData } from '../../hooks/useBoardData'; // Корректируй путь в зависимости от структуры папок
 
-interface Task {
-  id: string;
-  column_id: string;
-  title: string;
-  position: number;
-  description: string | null;
-  priority: 'low' | 'medium' | 'high' | string | null;
-  due_date: string | null;
-  assignee_id: string | null;
-}
+// Извлекаем строгие и актуальные типы напрямую из хука данных доски
+type Task = ReturnType<typeof useBoardData>['tasks'][number];
+type BoardMember = ReturnType<typeof useBoardData>['members'][number];
 
 interface ColumnProps {
   id: string;
   title: string;
   tasks: Task[];
-  members: any[];
+  members: BoardMember[]; // Никаких any[], строгий тип участников доски
   onDeleteColumn: () => void;
   onAddTask: (title: string) => void;
   onDeleteTask: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
 }
 
-export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, onDeleteTask, onTaskClick }: ColumnProps) => {
+export const Column = ({ 
+  id, 
+  title, 
+  tasks, 
+  members, 
+  onDeleteColumn, 
+  onAddTask, 
+  onDeleteTask, 
+  onTaskClick 
+}: ColumnProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
 
@@ -58,7 +61,7 @@ export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, o
               onDeleteColumn();
             }
           }}
-          className="text-slate-400 hover:text-red-500 p-1 rounded-md transition"
+          className="text-slate-400 hover:text-red-500 p-1 rounded-md transition cursor-pointer"
           title="Удалить колонку"
         >
           <Trash2 className="h-4 w-4" />
@@ -74,13 +77,9 @@ export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, o
           {tasks.map((task) => (
             <TaskCard
               key={task.id}
-              id={task.id}
-              title={task.title}
-              priority={task.priority}
-              dueDate={task.due_date}  
-              assigneeId={task.assignee_id} 
+              task={task} // Передаем объект целиком согласно новым типам TaskCardProps
               members={members}
-              onDelete={() => onDeleteTask(task.id)}
+              onDelete={onDeleteTask}
               onClick={() => onTaskClick(task)}
             />
           ))}
@@ -104,13 +103,13 @@ export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, o
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 transition"
+                className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
               <button
                 type="submit"
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-md transition shadow-xs"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-md transition shadow-xs cursor-pointer"
               >
                 Добавить
               </button>
@@ -119,7 +118,7 @@ export const Column = ({ id, title, tasks, members, onDeleteColumn, onAddTask, o
         ) : (
           <button
             onClick={() => setIsAdding(true)}
-            className="w-full flex items-center justify-center gap-1.5 py-2 hover:bg-slate-200 text-slate-600 hover:text-slate-800 font-medium text-sm rounded-lg border border-transparent hover:border-slate-300/40 transition"
+            className="w-full flex items-center justify-center gap-1.5 py-2 hover:bg-slate-200 text-slate-600 hover:text-slate-800 font-medium text-sm rounded-lg border border-transparent hover:border-slate-300/40 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Добавить задачу</span>

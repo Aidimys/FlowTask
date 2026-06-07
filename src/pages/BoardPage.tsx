@@ -5,24 +5,15 @@ import { Column } from '../components/board/Column';
 import { TaskModal } from '../components/board/TaskModal'; 
 import { ThemeToggle } from '../components/shared/ThemeToggle';
 import { ActivitySidebar } from '../components/board/ActivitySidebar';
-import { History } from 'lucide-react';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
-import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X, History } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../services/supabase';
 import * as api from '../services/boardsApi';
 
-interface Task {
-  id: string;
-  column_id: string;
-  title: string;
-  position: number; 
-  description: string | null;
-  priority: 'low' | 'medium' | 'high'; 
-  due_date: string | null;
-  assignee_id: string | null;
-}
+type Task = ReturnType<typeof useBoardData>['tasks'][number];
+type BoardMember = ReturnType<typeof useBoardData>['members'][number];
 
 export const BoardPage = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -37,7 +28,6 @@ export const BoardPage = () => {
 
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [isAddingColumn, setIsAddingColumn] = useState(false);
-  
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -61,11 +51,8 @@ export const BoardPage = () => {
     enabled: !!boardId,
   });
 
-  useEffect(() => {
-    if (columns && columns.length > 0 && !quickTaskColumnId) {
-      setQuickTaskColumnId(columns[0].id);
-    }
-  }, [columns, quickTaskColumnId]);
+  // Вычисляем дефолтную колонку "на лету" без лишних useEffect и каскадных рендеров
+  const effectiveQuickTaskColumnId = quickTaskColumnId || (columns && columns.length > 0 ? columns[0].id : '');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,7 +80,6 @@ export const BoardPage = () => {
     }
   }, [boardInfo]);
 
-  // === СФИЛЬТРОВАННЫЙ МАССИВ ЗАДАЧ ДЛЯ ОТРЕНДЕРИВАНИЯ ===
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch = 
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,19 +103,19 @@ export const BoardPage = () => {
     return matchesSearch && matchesPriority && matchesAssignee && matchesDate;
   });
 
-  const inviteMutation = useMutation({
+  const inviteMutation = useMutation<void, Error, string>({
     mutationFn: (email: string) => api.inviteUserByEmail(boardId!, email),
     onSuccess: () => {
       toast.success('Пользователь успешно добавлен!');
       setInviteEmail('');
       queryClient.invalidateQueries({ queryKey: ['board_members', boardId] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error(error.message);
     }
   });
 
-  const deleteBoardMutation = useMutation({
+  const deleteBoardMutation = useMutation<void, Error>({
     mutationFn: async () => {
       const { error } = await supabase.from('boards').delete().eq('id', boardId!);
       if (error) throw error;
@@ -138,12 +124,12 @@ export const BoardPage = () => {
       toast.success('Доска удалена');
       navigate('/dashboard'); 
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error(`Не удалось удалить: ${error.message}`);
     }
   }); 
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
     inviteMutation.mutate(inviteEmail);
@@ -163,7 +149,7 @@ export const BoardPage = () => {
     );
   }
 
-  const handleCreateColumn = (e: React.FormEvent) => {
+  const handleCreateColumn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newColumnTitle.trim()) return;
     createColumn(newColumnTitle.trim());
@@ -178,23 +164,32 @@ export const BoardPage = () => {
     const taskId = String(active.id);
     const overId = String(over.id);
 
-    let targetColumnId = '';
-    
+    const draggedTask = tasks.find(t => t.id === taskId);
+    if (!draggedTask) return;
+
     const isOverColumn = columns.some(c => c.id === overId);
-    if (isOverColumn) {
-      targetColumnId = overId;
-    } else {
-      const overTask = tasks.find(t => t.id === overId);
-      if (overTask) targetColumnId = overTask.column_id;
+    
+    // Избавляемся от мутаций и no-useless-assignment с помощью декларативного подхода
+    const overTask = !isOverColumn ? tasks.find(t => t.id === overId) : null;
+    if (!isOverColumn && !overTask) return;
+
+    const targetColumnId = isOverColumn ? overId : overTask!.column_id;
+    
+    const destinationIndex = isOverColumn
+      ? tasks.filter(t => t.column_id === targetColumnId).length
+      : tasks
+          .filter(t => t.column_id === targetColumnId)
+          .sort((a, b) => a.position - b.position)
+          .findIndex(t => t.id === overId);
+
+    if (!targetColumnId || destinationIndex === -1) return;
+    if (draggedTask.column_id !== targetColumnId || draggedTask.position !== destinationIndex) {
+      moveTask({ 
+        taskId, 
+        columnId: targetColumnId, 
+        position: destinationIndex 
+      });
     }
-
-    if (!targetColumnId) return;
-
-    // Считаем позицию по оригинальному массиву 'tasks', чтобы фильтр не ломал логику dnd
-    const columnTasks = tasks.filter(t => t.column_id === targetColumnId && t.id !== taskId);
-    const newPosition = columnTasks.length;
-
-    moveTask({ taskId, columnId: targetColumnId, position: newPosition });
   };
 
   return (
@@ -262,7 +257,6 @@ export const BoardPage = () => {
           >
             <User className="h-4 w-4 text-slate-500" />
           </button>
-          
         </div>
       </header>
 
@@ -282,21 +276,19 @@ export const BoardPage = () => {
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
           <SlidersHorizontal className="h-4 w-4 text-slate-400 mr-1" />
           
-          {/* Фильтр по исполнителю */}
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
             className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-blue-500 transition cursor-pointer text-slate-700"
           >
             <option value="">Все исполнители</option>
-            {members.map((m: any) => (
+            {members.map((m: BoardMember) => (
               <option key={m.user_id} value={m.user_id}>
                 {m.full_name || m.user_email}
               </option>
             ))}
           </select>
 
-          {/* Фильтр по приоритету */}
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -308,7 +300,6 @@ export const BoardPage = () => {
             <option value="low">Низкий</option>
           </select>
 
-          {/* Фильтр по дедлайну */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
@@ -320,7 +311,6 @@ export const BoardPage = () => {
             <option value="has_deadline">Есть дедлайн</option>
           </select>
 
-          {/* Кнопка сброса фильтров */}
           {(searchQuery || priorityFilter || assigneeFilter || dateFilter) && (
             <button
               onClick={() => {
@@ -340,19 +330,18 @@ export const BoardPage = () => {
       <main className="flex-1 overflow-x-auto p-6 flex gap-5 items-start minimal-scrollbar">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
           {columns.map((column) => {
-            // Передаем в колонку отфильтрованные таски!
             const columnTasks = filteredTasks.filter((t) => t.column_id === column.id);
             return (
               <Column
                 key={column.id}
                 id={column.id}
                 title={column.title}
-                tasks={columnTasks as any}
+                tasks={columnTasks} 
                 members={members}
                 onDeleteColumn={() => deleteColumn(column.id)}
                 onAddTask={(title) => createTask({ columnId: column.id, title, position: columnTasks.length })}
                 onDeleteTask={(taskId) => deleteTask(taskId)}
-                onTaskClick={(task) => setSelectedTask(task as Task)}
+                onTaskClick={(task) => setSelectedTask(task)} 
               />
             );
           })}
@@ -374,13 +363,13 @@ export const BoardPage = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddingColumn(false)}
-                  className="px-3 py-1.5 border border-slate-200 text-slate-700 rounded-md text-xs font-semibold transition hover:bg-slate-50"
+                  className="px-3 py-1.5 border border-slate-200 text-slate-700 rounded-md text-xs font-semibold transition hover:bg-slate-50 cursor-pointer"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold transition hover:bg-blue-700"
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold transition hover:bg-blue-700 cursor-pointer"
                 >
                   Создать
                 </button>
@@ -398,7 +387,7 @@ export const BoardPage = () => {
         </div>
       </main>
 
-      {/* МОДАЛЬНОЕ ОКНО БЫСТРОГО СОЗДАНИЯ (ОТКРЫВАЕТСЯ ПО ХОТКЕЮ N) */}
+      {/* МОДАЛЬНОЕ ОКНО БЫСТРОГО СОЗДАНИЯ */}
       {isQuickAddOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
@@ -417,11 +406,11 @@ export const BoardPage = () => {
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (!quickTaskTitle.trim() || !quickTaskColumnId) return;
+              if (!quickTaskTitle.trim() || !effectiveQuickTaskColumnId) return;
               
-              const targetColTasks = tasks.filter(t => t.column_id === quickTaskColumnId);
+              const targetColTasks = tasks.filter(t => t.column_id === effectiveQuickTaskColumnId);
               createTask({ 
-                columnId: quickTaskColumnId, 
+                columnId: effectiveQuickTaskColumnId, 
                 title: quickTaskTitle.trim(), 
                 position: targetColTasks.length 
               });
@@ -446,7 +435,7 @@ export const BoardPage = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Выберите колонку</label>
                 <select
-                  value={quickTaskColumnId}
+                  value={effectiveQuickTaskColumnId}
                   onChange={(e) => setQuickTaskColumnId(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-sm focus:border-blue-500 focus:bg-white focus:outline-none transition cursor-pointer"
                 >
@@ -477,14 +466,40 @@ export const BoardPage = () => {
       )}
 
       <TaskModal
-        task={selectedTask as any}
+        key={selectedTask?.id || 'empty'}
+        task={selectedTask} 
         isOpen={selectedTask !== null}
         members={members}
         onClose={() => setSelectedTask(null)}
         onSave={(taskId, updates) => {
-          updateTaskDetails({ taskId, updates });
+          const taskUpdates: {
+            description?: string;
+            priority?: 'medium' | 'low' | 'high';
+            due_date?: string | null;
+            assignee_id?: string | null;
+          } = {};
+
+          if ('description' in updates) {
+            taskUpdates.description = updates.description ?? undefined;
+          }
+          if ('priority' in updates) {
+            const priority = updates.priority;
+            taskUpdates.priority =
+              priority === 'low' || priority === 'medium' || priority === 'high'
+                ? priority
+                : undefined;
+          }
+          if ('due_date' in updates) {
+            taskUpdates.due_date = updates.due_date ?? undefined;
+          }
+          if ('assignee_id' in updates) {
+            taskUpdates.assignee_id = updates.assignee_id ?? undefined;
+          }
+
+          updateTaskDetails({ taskId, updates: taskUpdates });
         }}
       />
+      
       <ActivitySidebar
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}

@@ -3,13 +3,19 @@ import { X, Calendar, AlignLeft, BarChart2, User, MessageSquare, Send, Trash2 } 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase'; 
 import { toast } from 'react-hot-toast';
+import { type Database } from '../../types/database.types'; 
+import { type BoardMember } from '../../services/boardsApi';
+
+// Извлекаем чистые типы строк таблиц из сгенерированной базы данных
+type Task = Database['public']['Tables']['tasks']['Row'];
+type Comment = Database['public']['Tables']['comments']['Row'];
 
 interface TaskModalProps {
-  task: any;
+  task: Task | null;
   isOpen: boolean;
-  members: any[];
+  members: BoardMember[];
   onClose: () => void;
-  onSave: (taskId: string, updates: any) => void;
+  onSave: (taskId: string, updates: Partial<Task>) => void;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -21,44 +27,40 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
   const queryClient = useQueryClient();
   
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<string>('medium');
-  const [dueDate, setDueDate] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
+  // Локальный стейт для редактирования полей
+  const [title, setTitle] = useState(task?.title || '');
+  const [description, setDescription] = useState(task?.description || '');
+  const [priority, setPriority] = useState(task?.priority || 'medium');
+  const [dueDate, setDueDate] = useState(task?.due_date || '');
+  const [assigneeId, setAssigneeId] = useState(task?.assignee_id || '');
   const [newComment, setNewComment] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // Получаем текущего пользователя для проверки прав на удаление комментариев
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id || null);
     });
   }, []);
 
-  useEffect(() => {
-    if (task) {
-      setTitle(task.title || '');
-      setDescription(task.description || '');
-      setPriority(task.priority || 'medium');
-      setDueDate(task.due_date || task.dueDate || '');
-      setAssigneeId(task.assignee_id || task.assigneeId || '');
-    }
-  }, [task]);
-
-  const { data: comments = [], isLoading: isCommentsLoading } = useQuery({
+  // Запрос комментариев с явным указанием возвращаемого типа Comment[]
+  const { data: comments = [], isLoading: isCommentsLoading } = useQuery<Comment[]>({
     queryKey: ['comments', task?.id],
     queryFn: async () => {
+      if (!task?.id) return [];
       const { data, error } = await supabase
         .from('comments')
         .select('*')
         .eq('task_id', task.id)
         .order('created_at', { ascending: true });
+      
       if (error) throw error;
       return data || [];
     },
     enabled: !!task?.id && isOpen,
   });
 
+  // Закрытие по нажатию на Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -70,9 +72,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const addCommentMutation = useMutation({
+  // Мутация добавления комментария
+  const addCommentMutation = useMutation<void, Error, string>({
     mutationFn: async (content: string) => {
+      if (!task?.id) throw new Error('Задача не найдена');
       if (!currentUserId) throw new Error('Пользователь не авторизован');
+      
       const { error } = await supabase.from('comments').insert([
         { task_id: task.id, user_id: currentUserId, content }
       ]);
@@ -83,12 +88,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['comments', task?.id] });
       toast.success('Комментарий добавлен');
     },
-    onError: (err: any) => {
+    onError: (err) => {
       toast.error(err.message);
     }
   });
 
-  const deleteCommentMutation = useMutation({
+  // Мутация удаления комментария
+  const deleteCommentMutation = useMutation<void, Error, string>({
     mutationFn: async (commentId: string) => {
       const { error } = await supabase.from('comments').delete().eq('id', commentId);
       if (error) throw error;
@@ -97,14 +103,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['comments', task?.id] });
       toast.success('Комментарий удален');
     },
-    onError: (err: any) => {
+    onError: (err) => {
       toast.error(err.message);
     }
   });
 
   if (!isOpen || !task) return null;
 
-  const handleBlurSave = (field: string, value: any) => {
+  const handleBlurSave = (field: keyof Task, value: string | null) => {
     onSave(task.id, { [field]: value });
   };
 
@@ -113,7 +119,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     if (!newComment.trim()) return;
     addCommentMutation.mutate(newComment.trim());
   };
-
+  
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col minimal-scrollbar">
@@ -208,7 +214,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              onBlur={() => handleBlurSave('description', description)}
+              onBlur={() => handleBlurSave('description', description || null)}
               placeholder="Добавьте более подробное описание к этой задаче..."
               rows={4}
               className="w-full text-sm rounded-xl border border-slate-200 p-3 text-slate-700 placeholder-slate-400 focus:border-blue-500 focus:outline-none transition bg-slate-50 focus:bg-white"
@@ -248,7 +254,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   Здесь пока нет комментариев. Оставьте первый!
                 </div>
               ) : (
-                comments.map((comment: any) => {
+                comments.map((comment) => {
                   const author = members?.find((m) => m.user_id === comment.user_id);
                   const authorName = author?.full_name || author?.user_email || 'Пользователь';
                   const authorAvatar = author?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${comment.user_id}`;
@@ -263,10 +269,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                           <span className="font-bold text-slate-700">{authorName}</span>
                         </div>
                         <span className="text-slate-400 mr-7">
-                          {new Date(comment.created_at).toLocaleString('ru-RU', {
+                          {comment.created_at ? new Date(comment.created_at).toLocaleString('ru-RU', {
                             hour: '2-digit',
                             minute: '2-digit'
-                          })}
+                          }) : ''}
                         </span>
                       </div>
                       <p className="text-sm text-slate-700 wrap-break-word whitespace-pre-wrap pl-7">
