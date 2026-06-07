@@ -76,6 +76,67 @@
 
 ---
 
+## 🗄️ Архитектура базы данных
+
+Ниже представлена ER-диаграмма связей таблиц в PostgreSQL (Supabase), описывающая структуру проекта:
+
+```mermaid
+erDiagram
+    profiles {
+        uuid id PK
+        text name
+        text full_name
+        text avatar_url
+    }
+    boards {
+        uuid id PK
+        text title
+        uuid owner_id FK
+        timestamp created_at
+    }
+    board_members {
+        uuid id PK
+        uuid board_id FK
+        uuid user_id FK
+        text role
+    }
+    columns {
+        uuid id PK
+        uuid board_id FK
+        text title
+        integer position
+    }
+    tasks {
+        uuid id PK
+        uuid column_id FK
+        text title
+        text description
+        text priority
+        date due_date
+        uuid assignee_id FK
+        integer position
+        uuid created_by FK
+        timestamp created_at
+    }
+    comments {
+        uuid id PK
+        uuid task_id FK
+        uuid user_id FK
+        text content
+        timestamp created_at
+    }
+
+    profiles ||--o{ boards : "создает (owner_id)"
+    profiles ||--o{ board_members : "состоит в"
+    boards ||--o{ board_members : "содержит участников"
+    boards ||--o{ columns : "разбивается на"
+    columns ||--o{ tasks : "содержит"
+    tasks ||--o{ comments : "имеет"
+    profiles ||--o{ tasks : "назначается исполнителем"
+```
+
+---
+
 ## Ограничения проекта и направления развития
 
 Любой коммерческий продукт имеет компромиссы. В данной версии зафиксированы следующие ограничения:
@@ -83,6 +144,34 @@
 1. **Масштабируемость сортировки Drag and Drop:** Сейчас позиция элемента определяется целочисленным индексом `position`. При переносе элемента высчитывается его порядковый номер. Для высоконагруженных систем промышленным стандартом является использование **дробных индексов (Fractional Indexing / Lexorank)**, что позволит менять элементы местами за один `UPDATE`-запрос без пересчета индексов соседних элементов.
 2. **Отсутствие бинарного хранилища:** В текущей конфигурации к задачам нельзя прикреплять файлы. В будущем планируется подключить **Supabase Storage** для загрузки скриншотов и документов к карточкам задач.
 3. **Глубина покрытия тестами:** На данном этапе фокус был смещен на скорость доставки фич и идеальную работу Realtime-слоя. Проект нуждается в интеграционном тестировании критических путей (Auth, Движение задач) с использованием `Vitest` и `MSW` (для мокинга сетевых запросов Supabase).
+
+---
+
+Как это работает
+
+1. Регистрируемся/Логинимся
+
+![Login page](img/LoginRegistrPage.png)
+
+2. Создаём доску по нажатию на соответствующую кнопку
+
+![Dashboard](img/DashBoard.png)
+
+3. При желании можно сменить цветовое оформление
+
+![Dashboard](img/DashBoardDark.png)
+
+4. На доске будут созданы 3 стандартные колонки. Создаём задачу
+
+![BoardPage](img/BoardPage.png)
+
+5.  Детали задачи можно редактировать в модальном окне
+
+![TaskModal](img/TaskModal.png)
+
+6. Все изменения фиксируются в логах
+
+![Log](img/Log.png)
 
 ---
 

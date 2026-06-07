@@ -6,7 +6,7 @@ import { TaskModal } from '../components/board/TaskModal';
 import { ThemeToggle } from '../components/shared/ThemeToggle';
 import { ActivitySidebar } from '../components/board/ActivitySidebar';
 import { BoardSkeleton } from '../components/shared/BoardSkeleton';
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
+import { DndContext, type DragEndEvent, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X, History } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
@@ -53,7 +53,6 @@ export const BoardPage = () => {
     enabled: !!boardId,
   });
 
-  // Вычисляем дефолтную колонку "на лету" без лишних useEffect и каскадных рендеров
   const effectiveQuickTaskColumnId = quickTaskColumnId || (columns && columns.length > 0 ? columns[0].id : '');
 
   useEffect(() => {
@@ -139,13 +138,22 @@ export const BoardPage = () => {
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: {
+        distance: 8, 
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, 
+        tolerance: 5,  
+      },
     })
   );
 
   if (isLoading) {
-  return <BoardSkeleton />;
-}
+    return <BoardSkeleton />;
+  }
+
   const handleCreateColumn = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newColumnTitle.trim()) return;
@@ -155,65 +163,71 @@ export const BoardPage = () => {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-  const result = calculateDragEndResult(event, tasks, columns);
-  
-  if (result) {
-    moveTask(result);
-  }
-};
+    const result = calculateDragEndResult(event, tasks, columns);
+    if (result) {
+      moveTask(result);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 min-h-16 py-2 flex flex-wrap items-center shrink-0 px-6 justify-between sticky top-0 z-10 gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition cursor-pointer"
-            title="Назад к доскам"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex flex-col md:flex-row md:items-center gap-2">
-            <div className="flex items-center gap-2 font-bold text-lg text-slate-800">
-              <Layout className="h-5 w-5 text-blue-600" />
-              <span>{boardInfo?.title || 'Панель управления доской'}</span>
+    <div className="h-screen w-screen max-w-full bg-slate-50 flex flex-col overflow-hidden">
+      
+      {/* АДАПТИВНАЯ ШАПКА ДОСКИ */}
+      <header className="bg-white border-b border-slate-200 py-3 px-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-10 gap-4 shrink-0">
+        
+        {/* Левая группа: Назад + Название + Удаление */}
+        <div className="flex items-center gap-3 justify-between sm:justify-start w-full sm:w-auto">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition cursor-pointer shrink-0"
+              title="Назад к доскам"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2 font-bold text-base md:text-lg text-slate-800 min-w-0">
+              <Layout className="h-5 w-5 text-blue-600 shrink-0" />
+              <span className="truncate">{boardInfo?.title || 'Панель управления доской'}</span>
             </div>
-            
-            {isOwner && (
-              <button
-                onClick={() => {
-                  if (confirm('Вы уверены, что хотите НАВСЕГДА удалить эту доску?')) {
-                    deleteBoardMutation.mutate();
-                  }
-                }}
-                className="md:ml-2 flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer border border-red-100"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Удалить доску
-              </button>
-            )}
           </div>
+          
+          {isOwner && (
+            <button
+              onClick={() => {
+                if (confirm('Вы уверены, что хотите НАВСЕГДА удалить эту доску?')) {
+                  deleteBoardMutation.mutate();
+                }
+              }}
+              className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition cursor-pointer border border-red-100 shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Удалить доску</span>
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center shrink-0 px-6 justify-between gap-4">
+
+        {/* Правая группа: Сейф-панель действий (не вылазит за границы) */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition cursor-pointer border border-slate-200 shadow-xs h-9 w-9 flex items-center justify-center bg-white"
+            className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition cursor-pointer border border-slate-200 shadow-xs h-9 w-9 flex items-center justify-center bg-white shrink-0"
             title="История изменений"
           >
             <History className="h-4 w-4" />
           </button>
-          <form onSubmit={handleInvite} className="flex items-center gap-2">
+          
+          <form onSubmit={handleInvite} className="flex items-center gap-1.5 flex-1 sm:flex-initial max-w-full sm:max-w-none">
             <input
               type="email"
               placeholder="Пригласить по email..."
               required
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition w-48 md:w-64"
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 bg-slate-50 focus:bg-white transition flex-1 w-full sm:w-40 md:w-56 min-w-0"
             />
             <button
               type="submit"
               disabled={inviteMutation.isPending}
-              className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white p-2 rounded-xl transition cursor-pointer h-9 w-9"
+              className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 text-white p-2 rounded-xl transition cursor-pointer h-9 w-9 shrink-0"
               title="Пригласить"
             >
               <UserPlus className="h-4 w-4" />
@@ -223,7 +237,8 @@ export const BoardPage = () => {
           <ThemeToggle />
           <button
             onClick={() => navigate('/profile')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 transition shadow-xs cursor-pointer"
+            className="flex items-center justify-center h-9 w-9 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 transition shadow-xs cursor-pointer shrink-0"
+            title="Профиль"
           >
             <User className="h-4 w-4 text-slate-500" />
           </button>
@@ -231,7 +246,7 @@ export const BoardPage = () => {
       </header>
 
       {/* ФУНКЦИОНАЛЬНАЯ ПАНЕЛЬ ФИЛЬТРОВ И ПОИСКА ЗАДАЧ */}
-      <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center gap-3 shadow-xs">
+      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-2.5 flex flex-wrap items-center gap-3 shadow-xs shrink-0">
         <div className="relative flex-1 min-w-60 max-w-md">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
@@ -297,7 +312,8 @@ export const BoardPage = () => {
         </div>
       </div>
 
-      <main className="flex-1 overflow-x-auto p-6 flex gap-5 items-start minimal-scrollbar">
+      {/* ИЗОЛИРОВАННАЯ ЗОНА КОЛОНОК С ГОРИЗОНТАЛЬНЫМ СКРОЛЛОМ */}
+      <main className="flex-1 overflow-x-auto overflow-y-hidden p-4 md:p-6 flex gap-4 md:gap-5 items-start minimal-scrollbar select-none">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
           {columns.map((column) => {
             const columnTasks = filteredTasks.filter((t) => t.column_id === column.id);
@@ -317,7 +333,7 @@ export const BoardPage = () => {
           })}
         </DndContext>
 
-        <div className="w-72 shrink-0">
+        <div className="w-72 shrink-0 pb-4">
           {isAddingColumn ? (
             <form onSubmit={handleCreateColumn} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
               <input
