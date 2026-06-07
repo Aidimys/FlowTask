@@ -42,6 +42,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
+    touchAction: 'none',
   };
 
   const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
