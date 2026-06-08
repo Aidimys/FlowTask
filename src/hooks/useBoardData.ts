@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { type RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import * as api from '../services/boardsApi';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
@@ -14,53 +13,30 @@ export const useBoardData = (boardId: string) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-  if (!boardId) return;
-  
-  const boardChannel = supabase
-    .channel(`public:board_changes:${boardId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'columns', filter: `board_id=eq.${boardId}` },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
-        queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'tasks' },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-        queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'board_members', filter: `board_id=eq.${boardId}` },
-      () => {
-        queryClient.invalidateQueries({ queryKey: ['board_members', boardId] });
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'comments' },
-      (payload: RealtimePostgresChangesPayload<{ task_id: string }>) => {
-        const nextTaskId = payload.new && 'task_id' in payload.new ? payload.new.task_id : null;
-        const prevTaskId = payload.old && 'task_id' in payload.old ? payload.old.task_id : null;
-        
-        const taskId = nextTaskId || prevTaskId;
-        
-        if (taskId) {
-          queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
+    if (!boardId) return;
+    const boardChannel = supabase
+      .channel(`public:board_changes:${boardId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'columns', filter: `board_id=eq.${boardId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+          queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
         }
-      }
-    )
-    .subscribe();
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(boardChannel);
-  };
-}, [boardId, queryClient]);
+    return () => {
+      supabase.removeChannel(boardChannel);
+    };
+  }, [boardId, queryClient]);
 
 
   const columnsQuery = useQuery<Column[]>({
