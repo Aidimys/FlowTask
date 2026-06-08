@@ -249,3 +249,7 @@ BEGIN
     WHERE id = p_task_id;
 END;
 $$;
+
+ALTER TABLE public.columns REPLICA IDENTITY FULL;
+ALTER TABLE public.tasks REPLICA IDENTITY FULL;
+ALTER TABLE public.comments REPLICA IDENTITY FULL;
