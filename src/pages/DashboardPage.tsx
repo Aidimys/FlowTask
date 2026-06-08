@@ -71,7 +71,6 @@ export const DashboardPage = () => {
           </button>
         </div>
 
-        {/* Скелетон загрузки */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[1, 2, 3].map((i) => (
@@ -79,14 +78,12 @@ export const DashboardPage = () => {
             ))}
           </div>
         ) : boards.length === 0 ? (
-          /* Пустое состояние */
           <div className="flex flex-col items-center justify-center text-center bg-white p-12 rounded-xl border border-slate-200 border-dashed">
             <FolderKanban className="h-12 w-12 text-slate-300 mb-3" />
             <h3 className="text-lg font-semibold text-slate-700">У вас пока нет досок</h3>
             <p className="text-slate-400 text-sm mt-1 max-w-sm">Создайте свою первую канбан-доску, чтобы распределять задачи и следить за прогрессом.</p>
           </div>
         ) : (
-          /* Список досок */
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {boards.map((board) => (
               <div
@@ -102,7 +99,6 @@ export const DashboardPage = () => {
                   Создана: {board.created_at ? new Date(board.created_at).toLocaleDateString() : '—'}
                 </span>
 
-                {/* Кнопка удаления (только если текущий юзер — владелец) */}
                 {board.owner_id === user?.id && (
                   <button
                     disabled={isDeleting}

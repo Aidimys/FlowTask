@@ -3,9 +3,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core';
 import { TaskCard } from './TaskCard';
 import { Plus, X, Trash2 } from 'lucide-react';
-import { useBoardData } from '../../hooks/useBoardData'; // Корректируй путь в зависимости от структуры папок
+import { useBoardData } from '../../hooks/useBoardData'; 
 
-// Извлекаем строгие и актуальные типы напрямую из хука данных доски
 type Task = ReturnType<typeof useBoardData>['tasks'][number];
 type BoardMember = ReturnType<typeof useBoardData>['members'][number];
 
@@ -13,7 +12,7 @@ interface ColumnProps {
   id: string;
   title: string;
   tasks: Task[];
-  members: BoardMember[]; // Никаких any[], строгий тип участников доски
+  members: BoardMember[]; 
   onDeleteColumn: () => void;
   onAddTask: (title: string) => void;
   onDeleteTask: (taskId: string) => void;
@@ -77,7 +76,7 @@ export const Column = ({
           {tasks.map((task) => (
             <TaskCard
               key={task.id}
-              task={task} // Передаем объект целиком согласно новым типам TaskCardProps
+              task={task} 
               members={members}
               onDelete={onDeleteTask}
               onClick={() => onTaskClick(task)}
@@ -86,7 +85,6 @@ export const Column = ({
         </SortableContext>
       </div>
 
-      {/* Футер: Добавление новой задачи */}
       <div className="mt-2">
         {isAdding ? (
           <form onSubmit={handleAddTaskSubmit} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2 shadow-sm">

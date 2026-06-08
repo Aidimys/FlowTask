@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -14,25 +16,25 @@ export type Database = {
     Tables: {
       activity_logs: {
         Row: {
-          id: string
-          board_id: string
           action_text: string
-          created_at: string | null
-          user_id: string | null
+          board_id: string
+          created_at: string
+          id: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          board_id: string
           action_text: string
-          created_at?: string | null
-          user_id?: string | null
+          board_id: string
+          created_at?: string
+          id?: string
+          user_id?: string
         }
         Update: {
-          board_id?: string
-          id?: string
           action_text?: string
-          created_at?: string | null
-          user_id?: string | null
+          board_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -48,7 +50,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       board_members: {
@@ -78,13 +80,6 @@ export type Database = {
             referencedRelation: "boards"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "board_members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
         ]
       }
       boards: {
@@ -172,24 +167,21 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          full_name: string | null
           id: string
           name: string | null
-          full_name: string | null
-          email: string | null
         }
         Insert: {
           avatar_url?: string | null
+          full_name?: string | null
           id: string
           name?: string | null
-          full_name?: string | null
-          email?: string | null
         }
         Update: {
           avatar_url?: string | null
+          full_name?: string | null
           id?: string
           name?: string | null
-          full_name?: string | null
-          email?: string | null
         }
         Relationships: []
       }
@@ -242,14 +234,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      board_members_with_emails: {
+        Row: {
+          avatar_url: string | null
+          board_id: string | null
+          full_name: string | null
+          member_id: string | null
+          role: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_members_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      get_user_id_by_email: {
+      get_accessible_boards: { Args: { user_id: string }; Returns: string[] }
+      get_user_id_by_email: { Args: { email_text: string }; Returns: string }
+      reorder_tasks: {
         Args: {
-          email_text: string
+          p_new_position: number
+          p_target_column_id: string
+          p_task_id: string
         }
-        Returns: string | null
+        Returns: undefined
       }
     }
     Enums: {
@@ -262,6 +277,7 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<

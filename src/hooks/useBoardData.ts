@@ -18,7 +18,6 @@ export const useBoardData = (boardId: string) => {
   
   const boardChannel = supabase
     .channel(`public:board_changes:${boardId}`)
-    // Слушаем колонки
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'columns', filter: `board_id=eq.${boardId}` },
@@ -27,7 +26,6 @@ export const useBoardData = (boardId: string) => {
         queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
       }
     )
-    // Слушаем задачи
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'tasks' },
@@ -36,7 +34,6 @@ export const useBoardData = (boardId: string) => {
         queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
       }
     )
-    // Слушаем участников доски
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'board_members', filter: `board_id=eq.${boardId}` },
@@ -44,12 +41,10 @@ export const useBoardData = (boardId: string) => {
         queryClient.invalidateQueries({ queryKey: ['board_members', boardId] });
       }
     )
-    // Слушаем комментарии с безопасной типизацией payload
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'comments' },
       (payload: RealtimePostgresChangesPayload<{ task_id: string }>) => {
-        // Проверяем наличие task_id в новых или старых данных в зависимости от события (INSERT/UPDATE/DELETE)
         const nextTaskId = payload.new && 'task_id' in payload.new ? payload.new.task_id : null;
         const prevTaskId = payload.old && 'task_id' in payload.old ? payload.old.task_id : null;
         
@@ -67,7 +62,6 @@ export const useBoardData = (boardId: string) => {
   };
 }, [boardId, queryClient]);
 
-  // --- ЗАПРОСЫ (QUERIES) ---
 
   const columnsQuery = useQuery<Column[]>({
     queryKey: ['columns', boardId],
@@ -87,7 +81,6 @@ export const useBoardData = (boardId: string) => {
     enabled: !!boardId,
   });
 
-  // --- МУТАЦИИ (MUTATIONS) ---
 
   const createColumnMutation = useMutation<Column, Error, string>({
     mutationFn: (title: string) => {
@@ -147,13 +140,70 @@ export const useBoardData = (boardId: string) => {
     },
   });
 
-  const moveTaskMutation = useMutation<void, Error, { taskId: string; columnId: string; position: number }>({
+  const moveTaskMutation = useMutation<
+    void, 
+    Error, 
+    { taskId: string; columnId: string; position: number },
+    { previousTasks: Task[] | undefined }
+  >({
     mutationFn: ({ taskId, columnId, position }) => api.updateTaskPosition(taskId, columnId, position),
-    onSuccess: (_, variables) => {
-      const currentTask = tasksQuery.data?.find(t => t.id === variables.taskId);
-      const targetColumn = columnsQuery.data?.find(c => c.id === variables.columnId);
+    
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks', boardId] });
+
+      const previousTasks = queryClient.getQueryData<Task[]>(['tasks', boardId]);
+
+      queryClient.setQueryData<Task[]>(['tasks', boardId], (oldTasks) => {
+        if (!oldTasks) return [];
+
+        const taskToMove = oldTasks.find(t => t.id === variables.taskId);
+        if (!taskToMove) return oldTasks;
+
+        const otherColsTasks = oldTasks.filter(
+          t => t.column_id !== taskToMove.column_id && t.column_id !== variables.columnId
+        );
+
+        const sourceTasks = oldTasks
+          .filter(t => t.column_id === taskToMove.column_id && t.id !== variables.taskId)
+          .sort((a, b) => a.position - b.position);
+
+        const updatedMovedTask = { ...taskToMove, column_id: variables.columnId };
+
+        const isSameColumn = taskToMove.column_id === variables.columnId;
+
+        const finalSourceTasks = isSameColumn
+          ? []
+          : sourceTasks.map((t, idx) => ({ ...t, position: idx }));
+
+        const targetTasks = isSameColumn
+          ? sourceTasks
+          : oldTasks
+              .filter(t => t.column_id === variables.columnId)
+              .sort((a, b) => a.position - b.position);
+
+        const newOrder = [...targetTasks];
+        newOrder.splice(variables.position, 0, updatedMovedTask);
+        const finalTargetTasks = newOrder.map((t, idx) => ({ ...t, position: idx }));
+        return [...otherColsTasks, ...finalSourceTasks, ...finalTargetTasks];
+      });
+
+      return { previousTasks };
+    },
+
+    onError: (_err, _variables, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(['tasks', boardId], context.previousTasks);
+      }
+      toast.error('Не удалось сохранить порядок задач. Восстановление...');
+    },
+
+    onSettled: (_, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
       queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      
+      const currentTask = queryClient.getQueryData<Task[]>(['tasks', boardId])?.find(t => t.id === variables.taskId);
+      const targetColumn = queryClient.getQueryData<Column[]>(['columns', boardId])?.find(c => c.id === variables.columnId);
+      
       if (currentTask && targetColumn) {
         api.createActivityLog(
           boardId, 

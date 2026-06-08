@@ -6,7 +6,6 @@ import { toast } from 'react-hot-toast';
 import { type Database } from '../../types/database.types'; 
 import { type BoardMember } from '../../services/boardsApi';
 
-// Извлекаем чистые типы строк таблиц из сгенерированной базы данных
 type Task = Database['public']['Tables']['tasks']['Row'];
 type Comment = Database['public']['Tables']['comments']['Row'];
 
@@ -27,7 +26,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 }) => {
   const queryClient = useQueryClient();
   
-  // Локальный стейт для редактирования полей
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState(task?.priority || 'medium');
@@ -36,14 +34,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [newComment, setNewComment] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Получаем текущего пользователя для проверки прав на удаление комментариев
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id || null);
     });
   }, []);
 
-  // Запрос комментариев с явным указанием возвращаемого типа Comment[]
   const { data: comments = [], isLoading: isCommentsLoading } = useQuery<Comment[]>({
     queryKey: ['comments', task?.id],
     queryFn: async () => {
@@ -60,7 +56,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     enabled: !!task?.id && isOpen,
   });
 
-  // Закрытие по нажатию на Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -72,7 +67,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Мутация добавления комментария
   const addCommentMutation = useMutation<void, Error, string>({
     mutationFn: async (content: string) => {
       if (!task?.id) throw new Error('Задача не найдена');
@@ -93,7 +87,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }
   });
 
-  // Мутация удаления комментария
   const deleteCommentMutation = useMutation<void, Error, string>({
     mutationFn: async (commentId: string) => {
       const { error } = await supabase.from('comments').delete().eq('id', commentId);

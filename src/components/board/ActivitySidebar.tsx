@@ -8,7 +8,6 @@ interface ActivitySidebarProps {
   boardId: string;
 }
 
-// Элегантно вытаскиваем тип отдельного лога прямо из возвращаемого значения функции API
 type ActivityLogItem = NonNullable<Awaited<ReturnType<typeof api.getActivityLogs>>>[number];
 
 export const ActivitySidebar = ({ isOpen, onClose, boardId }: ActivitySidebarProps) => {

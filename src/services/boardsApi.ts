@@ -7,7 +7,7 @@ export const getBoards = async () => {
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data || []; // Гарантируем массив
+  return data || []; 
 };
 
 export const createBoard = async (title: string) => {
@@ -61,7 +61,7 @@ export const getColumns = async (boardId: string) => {
     .order('position', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data || []; // Гарантируем массив
+  return data || [];
 };
 
 export const createColumn = async (boardId: string, title: string, position: number) => {
@@ -111,7 +111,7 @@ export const getTasks = async (boardId: string) => {
     .order('position', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data || []; // Гарантируем массив задач без null
+  return data || [];
 };
 
 export const createTask = async (columnId: string, title: string, position: number) => {
@@ -147,20 +147,23 @@ export const deleteTask = async (taskId: string) => {
 };
 
 export const updateTaskPosition = async (taskId: string, columnId: string, position: number) => {
-  const { error } = await supabase
-    .from('tasks')
-    .update({ column_id: columnId, position })
-    .eq('id', taskId);
+  const { error } = await supabase.rpc('reorder_tasks', {
+    p_task_id: taskId,
+    p_target_column_id: columnId,
+    p_new_position: position
+  });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('Ошибка реордеринга задач:', error);
+    throw error;
+  }
 };
-
 export const updateTaskDetails = async (
   taskId: string, 
   updates: { 
     title?: string;
-    description?: string | null; // Теперь null разрешен!
-    priority?: string | null;    // Теперь null разрешен!
+    description?: string | null; 
+    priority?: string | null; 
     due_date?: string | null;
     assignee_id?: string | null;
     column_id?: string;
@@ -198,7 +201,6 @@ export const getBoardMembers = async (boardId: string): Promise<BoardMember[]> =
 
   const userIds = members.map(m => m.user_id);
   
-  // Запрашиваем full_name, avatar_url и name (если name используется под email/логин)
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, full_name, avatar_url, name')
@@ -214,7 +216,6 @@ export const getBoardMembers = async (boardId: string): Promise<BoardMember[]> =
       role: member.role,
       full_name: profile?.full_name || profile?.name || 'Пользователь',
       avatar_url: profile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${member.user_id}`,
-      // Если в таблице profiles нет email, используем name или пустую строку
       user_email: profile?.name || '' 
     };
   });

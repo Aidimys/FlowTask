@@ -40,7 +40,6 @@ describe('Board Utilities (DnD logic)', () => {
     expect(result).not.toBeNull();
     expect(result?.taskId).toBe('task-1');
     expect(result?.columnId).toBe('col-2');
-    // В col-2 уже есть 1 задача, значит новая встанет на индекс 1
     expect(result?.position).toBe(1);
   });
 

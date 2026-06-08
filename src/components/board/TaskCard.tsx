@@ -5,10 +5,8 @@ import { Calendar, Trash2 } from 'lucide-react';
 import { type Database } from '../../types/database.types';
 import { type BoardMember } from '../../services/boardsApi';
 
-// Получаем базовый тип задачи из автосгенерированных типов Supabase
 type BaseTask = Database['public']['Tables']['tasks']['Row'];
 
-// Расширяем тип задачи для join-запросов профилей
 type TaskWithProfile = BaseTask & {
   profiles?: {
     avatar_url?: string | null;
@@ -46,11 +44,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); // Предотвращаем срабатывание onClick на самой карточке
+    e.stopPropagation();
     onDelete(task.id);
   };
 
-  // Строго типизированный маппинг цветов для приоритетов
   const priorityColors: Record<string, string> = {
     high: 'bg-red-50 text-red-700 border-red-100',
     medium: 'bg-amber-50 text-amber-700 border-amber-100',

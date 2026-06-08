@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBoardData } from '../hooks/useBoardData';
 import { Column } from '../components/board/Column';
 import { TaskModal } from '../components/board/TaskModal'; 
+import { TaskCard } from '../components/board/TaskCard';
 import { ThemeToggle } from '../components/shared/ThemeToggle';
 import { ActivitySidebar } from '../components/board/ActivitySidebar';
 import { BoardSkeleton } from '../components/shared/BoardSkeleton';
-import { DndContext, type DragEndEvent, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners } from '@dnd-kit/core';
+import { DndContext, type DragEndEvent, type DragStartEvent, TouchSensor, PointerSensor, useSensor, useSensors, closestCorners, DragOverlay } from '@dnd-kit/core';
 import { ArrowLeft, Layout, Plus, UserPlus, Trash2, User, Search, SlidersHorizontal, X, History } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
@@ -46,6 +47,8 @@ export const BoardPage = () => {
   const [quickTaskColumnId, setQuickTaskColumnId] = useState('');
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const { data: boardInfo } = useQuery({
     queryKey: ['board_info', boardId],
@@ -122,6 +125,7 @@ export const BoardPage = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['boards'] });
       toast.success('Доска удалена');
       navigate('/dashboard'); 
     },
@@ -162,20 +166,28 @@ export const BoardPage = () => {
     setIsAddingColumn(false);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(event.active.id as string);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveTaskId(null);
     const result = calculateDragEndResult(event, tasks, columns);
     if (result) {
       moveTask(result);
     }
   };
 
+  const handleDragCancel = () => {
+    setActiveTaskId(null);
+  };
+
+  const activeDraggingTask = tasks.find(t => t.id === activeTaskId);
+
   return (
     <div className="h-screen w-screen max-w-full bg-slate-50 flex flex-col overflow-hidden">
       
-      {/* АДАПТИВНАЯ ШАПКА ДОСКИ */}
       <header className="bg-white border-b border-slate-200 py-3 px-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-10 gap-4 shrink-0">
-        
-        {/* Левая группа: Назад + Название + Удаление */}
         <div className="flex items-center gap-3 justify-between sm:justify-start w-full sm:w-auto">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -205,7 +217,6 @@ export const BoardPage = () => {
           )}
         </div>
 
-        {/* Правая группа: Сейф-панель действий (не вылазит за границы) */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
           <button
             onClick={() => setIsHistoryOpen(true)}
@@ -312,9 +323,14 @@ export const BoardPage = () => {
         </div>
       </div>
 
-      {/* ИЗОЛИРОВАННАЯ ЗОНА КОЛОНОК С ГОРИЗОНТАЛЬНЫМ СКРОЛЛОМ */}
       <main className="flex-1 overflow-x-auto overflow-y-hidden p-4 md:p-6 flex gap-4 md:gap-5 items-start minimal-scrollbar select-none">
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <DndContext 
+          sensors={sensors} 
+          collisionDetection={closestCorners} 
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
           {columns.map((column) => {
             const columnTasks = filteredTasks.filter((t) => t.column_id === column.id);
             return (
@@ -331,9 +347,22 @@ export const BoardPage = () => {
               />
             );
           })}
+
+          <DragOverlay dropAnimation={null}>
+            {activeDraggingTask ? (
+              <div className="w-72 min-w-[18rem] max-w-[18rem] rotate-2 opacity-90 shadow-2xl pointer-events-none">
+                <TaskCard
+                  task={activeDraggingTask}
+                  members={members}
+                  onDelete={() => {}}
+                  onClick={() => {}}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
 
-        <div className="w-72 shrink-0 pb-4">
+        <div className="w-72 min-w-[18rem] max-w-[18rem] shrink-0 pb-4">
           {isAddingColumn ? (
             <form onSubmit={handleCreateColumn} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs space-y-3">
               <input
@@ -373,7 +402,6 @@ export const BoardPage = () => {
         </div>
       </main>
 
-      {/* МОДАЛЬНОЕ ОКНО БЫСТРОГО СОЗДАНИЯ */}
       {isQuickAddOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">

@@ -65,7 +65,6 @@ export const LoginPage = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      // Безопасно извлекаем сообщение об ошибке без использования any
       const errorMessage = error instanceof Error ? error.message : 'Произошла ошибка при аутентификации';
       toast.error(errorMessage);
     } finally {
