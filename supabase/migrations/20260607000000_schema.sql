@@ -1,8 +1,7 @@
-
 CREATE TABLE public.boards (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title text NOT NULL,
-  owner_id uuid NOT NULL DEFAULT auth.uid(), 
+  owner_id uuid NOT NULL DEFAULT auth.uid(),
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT boards_pkey PRIMARY KEY (id),
   CONSTRAINT boards_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
@@ -14,7 +13,7 @@ CREATE TABLE public.board_members (
   user_id uuid NOT NULL,
   role text NOT NULL DEFAULT 'member'::text CHECK (role = ANY (ARRAY['owner'::text, 'member'::text])),
   CONSTRAINT board_members_pkey PRIMARY KEY (id),
-  CONSTRAINT board_members_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
+  CONSTRAINT board_members_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id) ON DELETE CASCADE,
   CONSTRAINT board_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 
@@ -24,7 +23,7 @@ CREATE TABLE public.columns (
   title text NOT NULL,
   position integer NOT NULL DEFAULT 0,
   CONSTRAINT columns_pkey PRIMARY KEY (id),
-  CONSTRAINT columns_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id)
+  CONSTRAINT columns_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id) ON DELETE CASCADE
 );
 
 CREATE TABLE public.tasks (
@@ -36,10 +35,10 @@ CREATE TABLE public.tasks (
   due_date date,
   assignee_id uuid,
   position integer NOT NULL DEFAULT 0,
-  created_by uuid NOT NULL DEFAULT auth.uid(), 
+  created_by uuid NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
-  CONSTRAINT tasks_column_id_fkey FOREIGN KEY (column_id) REFERENCES public.columns(id),
+  CONSTRAINT tasks_column_id_fkey FOREIGN KEY (column_id) REFERENCES public.columns(id) ON DELETE CASCADE,
   CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
@@ -47,11 +46,11 @@ CREATE TABLE public.tasks (
 CREATE TABLE public.comments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   task_id uuid NOT NULL,
-  user_id uuid NOT NULL DEFAULT auth.uid(), 
+  user_id uuid NOT NULL,
   content text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT comments_pkey PRIMARY KEY (id),
-  CONSTRAINT comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
+  CONSTRAINT comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE,
   CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 
@@ -61,7 +60,7 @@ CREATE TABLE public.profiles (
   avatar_url text,
   full_name text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE public.activity_logs (
@@ -71,7 +70,7 @@ CREATE TABLE public.activity_logs (
   action_text text NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   CONSTRAINT activity_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT activity_logs_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
+  CONSTRAINT activity_logs_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id) ON DELETE CASCADE,
   CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
 
@@ -162,6 +161,16 @@ CREATE POLICY "activity_logs_select_policy" ON public.activity_logs
 CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs
   FOR INSERT TO authenticated WITH CHECK (board_id IN (SELECT public.get_accessible_boards(auth.uid())));
 
+CREATE POLICY "profiles_seen_policy" ON public.profiles
+  FOR SELECT 
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "users_can_update_only_their_own_profiles_policy" ON public.profiles
+  FOR UPDATE 
+  TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
 CREATE OR REPLACE FUNCTION public.get_user_id_by_email(target_email text)
 RETURNS uuid
@@ -253,3 +262,4 @@ $$;
 ALTER TABLE public.columns REPLICA IDENTITY FULL;
 ALTER TABLE public.tasks REPLICA IDENTITY FULL;
 ALTER TABLE public.comments REPLICA IDENTITY FULL;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

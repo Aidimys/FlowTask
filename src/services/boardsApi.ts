@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { supabase } from './supabase';
 
 export const getBoards = async () => {
@@ -154,7 +155,8 @@ export const updateTaskPosition = async (taskId: string, columnId: string, posit
   });
 
   if (error) {
-    console.error('Ошибка реордеринга задач:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
+    toast.error(`Ошибка реордеринга задач: ${errorMessage}`);
     throw error;
   }
 };

@@ -6,8 +6,6 @@ import { toast } from 'react-hot-toast';
 
 export const ProfilePage = () => {
   const navigate = useNavigate();
-  
-  // Инициализируем loading сразу в true, чтобы не вызывать setLoading(true) синхронно в эффекте
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -15,14 +13,12 @@ export const ProfilePage = () => {
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  // 1. Объявляем функцию загрузки
   const loadProfile = async () => {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
 
       if (user) {
-        // Оборачиваем обновление стейта в макротаску, чтобы линтер не ругался на синхронный setState в эффекте
         setTimeout(() => {
           setEmail(user.email || '');
           setFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
@@ -44,17 +40,14 @@ export const ProfilePage = () => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-      console.error('Ошибка при загрузке профиля:', errorMessage);
-      toast.error('Не удалось загрузить данные профиля');
+      toast.error(`Не удалось загрузить данные профиля: ${errorMessage} `);
     } finally {
-      // Выключаем статус загрузки в конце очереди задач
       setTimeout(() => {
         setLoading(false);
       }, 0);
     }
   };
 
-  // 2. Вызываем эффект
   useEffect(() => {
     loadProfile();
   }, []);
@@ -71,13 +64,11 @@ export const ProfilePage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Пользователь не найден');
 
-      // Обновляем метаданные в Auth
       const { error: authUpdateError } = await supabase.auth.updateUser({
         data: { full_name: fullName, avatar_url: avatarUrl }
       });
       if (authUpdateError) throw authUpdateError;
 
-      // Обновляем публичную таблицу профилей
       const { error: profileUpdateError } = await supabase
         .from('profiles')
         .upsert({
@@ -91,7 +82,7 @@ export const ProfilePage = () => {
       toast.success('Профиль успешно обновлен!');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-      toast.error(`Ошибка保存ения: ${errorMessage}`);
+      toast.error(`Ошибка чтения: ${errorMessage}`);
     } finally {
       setSaving(false);
     }

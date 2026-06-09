@@ -39,7 +39,14 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
