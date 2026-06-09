@@ -4,7 +4,7 @@
 
 ## Ссылки проекта
 
-- **Продакшн деплой:** [Открыть работающее приложение на Vercel](https://flow-task-n9v5dqgzn-aidimys-projects.vercel.app)
+- **Продакшн деплой:** [Открыть работающее приложение на Vercel](https://flow-task-two-rho.vercel.app/)
 - **Файл схемы БД:** в `/supabase/migrations/20260607000000_schema.sql`
 
 ---
