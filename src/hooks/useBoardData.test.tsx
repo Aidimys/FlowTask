@@ -69,7 +69,7 @@ describe('Хук useBoardData', () => {
       { id: 'col-1', board_id: 'board-id-123', title: 'В работе', position: 0, created_at: '' }
     ];
     const mockTasks = [
-      { id: 'task-1', column_id: 'col-1', title: 'Покрыть хуки тестами', position: 0, description: '', priority: 'high' as const, due_date: null, assignee_id: null, created_at: '', created_by: 'user-1' }
+      { id: 'task-1', board_id: 'board-id-123', column_id: 'col-1', title: 'Покрыть хуки тестами', position: 0, description: '', priority: 'high' as const, due_date: null, assignee_id: null, created_at: '', created_by: 'user-1' }
     ];
 
     vi.mocked(api.getColumns).mockResolvedValue(mockColumns);
