@@ -13,30 +13,35 @@ export const useBoardData = (boardId: string) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!boardId) return;
-    const boardChannel = supabase
-      .channel(`public:board_changes:${boardId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'columns', filter: `board_id=eq.${boardId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
-          queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tasks' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-        }
-      )
-      .subscribe();
+  if (!boardId) return;
+  const boardChannel = supabase
+    .channel(`public:board_changes:${boardId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'columns', filter: `board_id=eq.${boardId}` },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['columns', boardId] });
+        queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+      }
+    )
+    .on(
+      'postgres_changes',
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'tasks', 
+        filter: `board_id=eq.${boardId}`
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+      }
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(boardChannel);
-    };
-  }, [boardId, queryClient]);
+  return () => {
+    supabase.removeChannel(boardChannel);
+  };
+}, [boardId, queryClient]);
 
 
   const columnsQuery = useQuery<Column[]>({
@@ -93,17 +98,14 @@ export const useBoardData = (boardId: string) => {
     },
   });
 
-  const createTaskMutation = useMutation<Task, Error, { columnId: string; title: string; position: number }>({
-    mutationFn: ({ columnId, title, position }) => api.createTask(columnId, title, position),
-    onSuccess: (newTask) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
-      queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
-      if (newTask) {
-        api.createActivityLog(boardId, `добавил(а) задачу "${newTask.title}"`);
-      }
-      toast.success('Задача добавлена');
-    },
-  });
+  const createTaskMutation = useMutation({
+  mutationFn: ({ columnId, title, position }: { columnId: string; title: string; position: number }) => 
+    api.createTask(boardId, columnId, title, position),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['tasks', boardId] });
+    queryClient.invalidateQueries({ queryKey: ['activity_logs', boardId] });
+  },
+});
 
   const deleteTaskMutation = useMutation<void, Error, string>({
     mutationFn: (id: string) => api.deleteTask(id),

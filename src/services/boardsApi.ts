@@ -96,26 +96,17 @@ export const updateColumnTitle = async (columnId: string, title: string) => {
 };
 
 export const getTasks = async (boardId: string) => {
-  const { data: columns } = await supabase
-    .from('columns')
-    .select('id')
-    .eq('board_id', boardId);
-
-  const columnIds = columns?.map(c => c.id) || [];
-
-  if (columnIds.length === 0) return [];
-
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
-    .in('column_id', columnIds)
+    .eq('board_id', boardId)
     .order('position', { ascending: true });
 
   if (error) throw new Error(error.message);
   return data || [];
 };
 
-export const createTask = async (columnId: string, title: string, position: number) => {
+export const createTask = async (boardId: string, columnId: string, title: string, position: number) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Не авторизован');
 
@@ -123,6 +114,7 @@ export const createTask = async (columnId: string, title: string, position: numb
     .from('tasks')
     .insert([
       { 
+        board_id: boardId,
         column_id: columnId, 
         title, 
         position, 
@@ -186,7 +178,7 @@ export const updateTaskDetails = async (
 
 export interface BoardMember {
   user_id: string;
-  user_email: string;
+  user_name: string;
   full_name: string;
   avatar_url: string;
   role: string;
@@ -218,7 +210,7 @@ export const getBoardMembers = async (boardId: string): Promise<BoardMember[]> =
       role: member.role,
       full_name: profile?.full_name || profile?.name || 'Пользователь',
       avatar_url: profile?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${member.user_id}`,
-      user_email: profile?.name || '' 
+      user_name: profile?.name || '' 
     };
   });
 };

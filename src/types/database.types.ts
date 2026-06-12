@@ -92,7 +92,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
-          owner_id: string
+          owner_id?: string
           title: string
         }
         Update: {
@@ -188,6 +188,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          board_id: string | null
           column_id: string
           created_at: string | null
           created_by: string
@@ -200,6 +201,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          board_id?: string | null
           column_id: string
           created_at?: string | null
           created_by: string
@@ -212,6 +214,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          board_id?: string | null
           column_id?: string
           created_at?: string | null
           created_by?: string
@@ -223,6 +226,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_column_id_fkey"
             columns: ["column_id"]

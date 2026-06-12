@@ -10,7 +10,6 @@ interface MinimalColumn {
   id: string;
 }
 
-// Выносим сортировку в отдельную переиспользуемую утилиту
 export const sortItemsByPosition = <T extends { position: number }>(items: T[]): T[] => {
   return [...items].sort((a, b) => a.position - b.position);
 };
@@ -36,7 +35,6 @@ export const calculateDragEndResult = (
 
   const targetColumnId = isOverColumn ? overId : overTask!.column_id;
 
-  // Используем нашу новую утилиту сортировки
   const targetColumnTasks = sortItemsByPosition(
     tasks.filter(t => t.column_id === targetColumnId)
   );

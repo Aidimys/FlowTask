@@ -155,7 +155,7 @@ export const BoardPage = () => {
             <option value="">Все исполнители</option>
             {members.map((m: BoardMember) => (
               <option key={m.user_id} value={m.user_id}>
-                {m.full_name || m.user_email}
+                {m.full_name || m.user_name}
               </option>
             ))}
           </select>

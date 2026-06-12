@@ -67,6 +67,30 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+  if (!task?.id) return;
+
+  const channel = supabase
+    .channel(`task-comments-${task.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'comments',
+        filter: `task_id=eq.${task.id}`
+      },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['comments', task.id] });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [task?.id, queryClient]);
+
   const addCommentMutation = useMutation<void, Error, string>({
     mutationFn: async (content: string) => {
       if (!task?.id) throw new Error('Задача не найдена');
@@ -157,7 +181,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 <option value="">Не назначен</option>
                 {members?.map((member) => (
                   <option key={member.user_id} value={member.user_id}>
-                    {member.full_name ? `${member.full_name}` : member.user_email}
+                    {member.full_name ? `${member.full_name}` : member.user_name}
                   </option>
                 ))}
               </select>
@@ -249,7 +273,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               ) : (
                 comments.map((comment) => {
                   const author = members?.find((m) => m.user_id === comment.user_id);
-                  const authorName = author?.full_name || author?.user_email || 'Пользователь';
+                  const authorName = author?.full_name || author?.user_name || 'Пользователь';
                   const authorAvatar = author?.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${comment.user_id}`;
                   const isMyComment = comment.user_id === currentUserId;
 
